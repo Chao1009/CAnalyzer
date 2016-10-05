@@ -29,7 +29,9 @@ public:
     double Det(const size_t &k) const;
 
     // available only for square matrix
-    bool SquareCheck() const;
+    bool SquareCheck(const std::string &func_name = "") const;
+    bool IsSymmetric() const;
+    bool IsPositiveDefinite() const;
     CMatrix Identity() const;
     CMatrix Power(const int &n) const;
     double Det() const;

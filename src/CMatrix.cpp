@@ -259,11 +259,13 @@ CMatrix CMatrix::UpperLeft(const size_t &k) const
     return res;
 }
 
-bool CMatrix::SquareCheck() const
+bool CMatrix::SquareCheck(const std::string &func_name) const
 {
     if(dim_n != dim_m)
     {
-        std::cerr << "CMatrix Error: This is not a square matrix."
+        std::cerr << "CMatrix Error: function "
+                  << func_name
+                  << " is only for a square matrix."
                   << std::endl;
         return false;
     }
@@ -278,9 +280,34 @@ bool CMatrix::SquareCheck() const
     return true;
 }
 
+bool CMatrix::IsSymmetric() const
+{
+    if(dim_m != dim_n)
+        return false;
+
+    for(size_t i = 1; i < dim_n; ++i)
+        for(size_t j = 0; j < i; ++j)
+            if(At(i, j) != At(j, i))
+                return false;
+
+    return true;
+}
+
+bool CMatrix::IsPositiveDefinite() const
+{
+    if(dim_m != dim_n)
+        return false;
+
+    for(size_t i = 1; i <= dim_n; ++i)
+        if(Det(i) < 0)
+            return false;
+
+    return true;
+}
+
 double CMatrix::Det() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Determinant"))
         return 0.;
 
     if(dim_n == 1) { // special case
@@ -315,7 +342,7 @@ double CMatrix::Det(const size_t &k) const
 
 double CMatrix::Trace() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Trace"))
         return 0.;
 
     double res = 0.;
@@ -326,7 +353,7 @@ double CMatrix::Trace() const
 
 CMatrix CMatrix::Cofactor() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Cofactor"))
         return CMatrix(0);
 
     CMatrix cofm(dim_n - 1), res(dim_n);
@@ -369,7 +396,7 @@ CMatrix CMatrix::Transpose() const
 
 void CMatrix::TransposeSelf()
 {
-    if(!SquareCheck())
+    if(!SquareCheck("TransposeSelf"))
         return;
 
     for(size_t i = 1; i < dim_n; ++i)
@@ -401,7 +428,7 @@ CMatrix CMatrix::Inverse() const
 
 CMatrix CMatrix::LowerTri() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Lower Triangle"))
         return CMatrix(0);
 
     CMatrix res(dim_n);
@@ -417,7 +444,7 @@ CMatrix CMatrix::LowerTri() const
 
 CMatrix CMatrix::UpperTri() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Upper Triangle"))
         return CMatrix(0);
 
     CMatrix res(dim_n);
@@ -435,8 +462,15 @@ CMatrix CMatrix::UpperTri() const
 // TODO, add complex number support
 CMatrix CMatrix::Cholesky() const
 {
-    if(!SquareCheck())
+    if(!SquareCheck("Cholesky Decomposition"))
         return CMatrix(0);
+
+    if(!IsSymmetric() || !IsPositiveDefinite()) {
+        std::cerr << "CMatrix Error: Cholesky Decomposition is only valid for a "
+                  << "symmetric positive definite matrix."
+                  << std::endl;
+        return CMatrix(0);
+    }
 
     CMatrix res(dim_n);
 
