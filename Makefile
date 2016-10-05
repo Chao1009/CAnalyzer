@@ -39,43 +39,36 @@ STRIP         =
 
 ####### Files
 
-SOURCES       = src/ConfigParser.cpp \
-                src/CAnalyzer.cpp \
-                src/CMatrix.cpp
-
-OBJECTS       = obj/ConfigParser.o \
-                obj/CAnalyzer.o \
-                obj/CMatrix.o
-
 TARGET        = libCAna.so
 
-
 OBJECTS_DIR   = obj
+
+SOURCES_DIR   = src
+
+CXX_EXT       = cpp
+
+CXX_OBJECTS   = $(OBJECTS_DIR)/ConfigParser.o \
+                $(OBJECTS_DIR)/CAnalyzer.o \
+                $(OBJECTS_DIR)/CMatrix.o
 
 first: all
 ####### Build rules
 
-$(TARGET):  $(OBJECTS)
-	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
+$(TARGET):  $(CXX_OBJECTS)
+	$(LINK) $(LFLAGS) -o $(TARGET) $(CXX_OBJECTS) $(OBJCOMP) $(LIBS)
 
 all: Makefile $(TARGET)
 
 clean: cleanobj cleantgt
 
 cleanobj:
-	-$(DEL_FILE) $(OBJECTS)
+	-$(DEL_FILE) $(CXX_OBJECTS)
 
 cleantgt:
 	-$(DEL_FILE) $(TARGET)
 
-obj/ConfigParser.o: src/ConfigParser.cpp
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/ConfigParser.o src/ConfigParser.cpp
-
-obj/CAnalyzer.o: src/CAnalyzer.cpp
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/CAnalyzer.o src/CAnalyzer.cpp
-
-obj/CMatrix.o: src/CMatrix.cpp
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/CMatrix.o src/CMatrix.cpp
+$(OBJECTS_DIR)/%.o: $(SOURCES_DIR)/%.$(CXX_EXT)
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
 
 ####### Install
 
