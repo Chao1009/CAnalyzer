@@ -42,9 +42,7 @@ class ConfigValue
 public:
     std::string _value;
 
-    ConfigValue()
-    : _value("0")
-    {};
+    ConfigValue() {};
 
     ConfigValue(const std::string &value);
     ConfigValue(const int &value);
@@ -89,6 +87,7 @@ public:
     long double LongDouble();
     const char *c_str();
     std::string String() {return _value;};
+    bool IsEmpty() {return _value.empty();};
 
     operator std::string() const
     {
@@ -149,5 +148,21 @@ public:
     static void find_integer_helper(const std::string &str, std::vector<int> &result);
 };
 
+ConfigParser &operator >> (ConfigParser &c, std::string &v);
+ConfigParser &operator >> (ConfigParser &c, char &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned char &v);
+ConfigParser &operator >> (ConfigParser &c, short &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned short &v);
+ConfigParser &operator >> (ConfigParser &c, int &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned int &v);
+ConfigParser &operator >> (ConfigParser &c, long &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned long &v);
+ConfigParser &operator >> (ConfigParser &c, long long &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned long long &v);
+ConfigParser &operator >> (ConfigParser &c, float &v);
+ConfigParser &operator >> (ConfigParser &c, double &v);
+ConfigParser &operator >> (ConfigParser &c, long double &v);
+ConfigParser &operator >> (ConfigParser &c, const char *&v);
+ConfigParser &operator >> (ConfigParser &c, ConfigValue &v);
 
 #endif
