@@ -9,14 +9,19 @@
 class CMatrix
 {
 public:
-    CMatrix(const size_t &n);
+    CMatrix(const size_t &n = 0);
     CMatrix(const size_t &n, const size_t &m);
     CMatrix(const size_t &n, const size_t &m, double **ele);
     CMatrix(const CMatrix &rhs);
     CMatrix(CMatrix &&rhs);
+    CMatrix &operator=(const CMatrix &rhs);
+    CMatrix &operator=(CMatrix &&rhs);
     virtual ~CMatrix();
 
     void FillElements(const std::initializer_list<double> &ele);
+    void FillElements(const std::vector<double> &ele);
+    void FillRow(const size_t &row, const std::vector<double> &ele);
+    void FillColumn(const size_t &col, const std::vector<double> &ele);
     double At(const size_t &n, const size_t &m) const;
     size_t DimN() const {return dim_n;};
     size_t DimM() const {return dim_m;};
@@ -30,8 +35,10 @@ public:
 
     // available only for square matrix
     bool SquareCheck(const std::string &func_name = "") const;
+    bool IsDiagonal() const;
     bool IsSymmetric() const;
     bool IsPositiveDefinite() const;
+    CMatrix Diagonal() const;
     CMatrix Identity() const;
     CMatrix Power(const int &n) const;
     double Det() const;
@@ -84,11 +91,12 @@ public:
         FillElements(ele);
     }
 
-    double **GetPtr() {return elements;};
-    void NullPtr(){elements = nullptr;};
+    double **_GetPtr() {return elements;};
+    void _NullPtr(){elements = nullptr;};
 
 private:
     void initialize(const bool &zero = false);
+    void release();
 
 private:
     size_t dim_n, dim_m;

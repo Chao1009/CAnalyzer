@@ -3,6 +3,7 @@
 
 #include "ConfigParser.h"
 #include "CMatrix.h"
+#include "CEstimator.h"
 #include <vector>
 #include <string>
 

@@ -11,8 +11,8 @@ MAKEFILE      = Makefile
 
 CC            = gcc
 CXX           = g++
-CXXFLAGS      = -shared -pipe -std=c++11 -O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector-strong --param=ssp-buffer-size=4 -grecord-gcc-switches -m64 -mtune=generic -O2 -std=gnu++0x -Wall -W -D_REENTRANT -fPIC $(DEFINES)
-INCPATH       = -Iinclude
+CXXFLAGS      = -shared -pipe -std=c++11 -O2 -g -Wall -m64 -mtune=generic -fPIC
+INCPATH       = -Iinclude -I$(ROOTSYS)/include
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
 MKDIR         = mkdir -p
@@ -30,8 +30,7 @@ TAR           = tar -cf
 COMPRESS      = gzip -9f
 LINK          = g++
 LFLAGS        = -shared -Wl,-O1 -Wl,-z,relro
-LIBS          = $(SUBLIBS)
-# -L$(ROOTSYS)/lib -lCore -lRint -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lPostscript -lMatrix -lPhysics -lMathCore -lThread -lGui -lSpectrum -lGL -lpthread 
+LIBS          = 
 AR            = ar cqs
 RANLIB        = 
 SED           = sed
@@ -45,11 +44,10 @@ OBJECTS_DIR   = obj
 
 SOURCES_DIR   = src
 
-CXX_EXT       = cpp
-
 CXX_OBJECTS   = $(OBJECTS_DIR)/ConfigParser.o \
                 $(OBJECTS_DIR)/CAnalyzer.o \
-                $(OBJECTS_DIR)/CMatrix.o
+                $(OBJECTS_DIR)/CMatrix.o \
+                $(OBJECTS_DIR)/CEstimator.o
 
 first: all
 ####### Build rules
@@ -67,7 +65,7 @@ cleanobj:
 cleantgt:
 	-$(DEL_FILE) $(TARGET)
 
-$(OBJECTS_DIR)/%.o: $(SOURCES_DIR)/%.$(CXX_EXT)
+$(OBJECTS_DIR)/%.o: $(SOURCES_DIR)/%.cpp
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
 
 ####### Install

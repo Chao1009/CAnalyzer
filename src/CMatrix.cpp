@@ -60,18 +60,43 @@ CMatrix::CMatrix(const CMatrix &rhs)
 CMatrix::CMatrix(CMatrix && rhs)
 : dim_n(rhs.DimN()), dim_m(rhs.DimM())
 {
-    elements = rhs.GetPtr();
-    rhs.NullPtr();
+    elements = rhs._GetPtr();
+    rhs._NullPtr();
+}
+
+CMatrix& CMatrix::operator= (const CMatrix &rhs)
+{
+    release();
+
+    dim_n = rhs.DimN();
+    dim_m = rhs.DimM();
+    initialize(false);
+
+    for(size_t i = 0; i < dim_n; ++i)
+    {
+        for(size_t j = 0; j < dim_m ; ++j)
+        {
+            elements[i][j] = rhs.At(i, j);
+        }
+    }
+    return *this;
+}
+
+CMatrix& CMatrix::operator= (CMatrix &&rhs)
+{
+    release();
+
+    dim_n = rhs.DimN();
+    dim_m = rhs.DimM();
+
+    elements = rhs._GetPtr();
+    rhs._NullPtr();
+    return *this;
 }
 
 CMatrix::~CMatrix()
 {
-    if(!elements) return;
-    for(size_t i = 0; i < dim_n; ++i)
-    {
-        delete [] elements[i];
-    }
-    delete [] elements;
+    release();
 }
 
 void CMatrix::initialize(const bool &zero)
@@ -93,9 +118,19 @@ void CMatrix::initialize(const bool &zero)
     }
 }
 
+void CMatrix::release()
+{
+    if(!elements)
+        return;
+    for(size_t i = 0; i < dim_n; ++i)
+    {
+        delete [] elements[i], elements[i] = nullptr;
+    }
+    delete [] elements, elements = nullptr;
+}
+
 void CMatrix::FillElements(const std::initializer_list<double> &ele)
 {
-
     size_t i = 0, j = 0;
     for(double x : ele)
     {
@@ -106,6 +141,53 @@ void CMatrix::FillElements(const std::initializer_list<double> &ele)
         if(i >= dim_n)
             break;
         elements[i][j++] = x;
+    }
+}
+
+void CMatrix::FillElements(const std::vector<double> &ele)
+{
+    size_t i = 0, j = 0;
+    for(double x : ele)
+    {
+        if(j >= dim_m) {
+            j -= dim_m;
+            i ++;
+        }
+        if(i >= dim_n)
+            break;
+        elements[i][j++] = x;
+    }
+}
+
+void CMatrix::FillRow(const size_t &row, const std::vector<double> &ele)
+{
+    if(row >= dim_n)
+    {
+        std::cout << "CMatrix Warning: Cannot fill row " << row
+                  << ", it is a " << dim_n << "x" << "dim_m matrix. "
+                  << "Row index start at 0"
+                  << std::endl;
+        return;
+    }
+    for(size_t i = 0; i < ele.size() && i < dim_m; ++i)
+    {
+        elements[row][i] = ele.at(i);
+    }
+}
+
+void CMatrix::FillColumn(const size_t &col, const std::vector<double> &ele)
+{
+    if(col >= dim_m)
+    {
+        std::cout << "CMatrix Warning: Cannot fill column " << col
+                  << ", it is a " << dim_n << "x" << "dim_m matrix. "
+                  << "Column index start at 0"
+                  << std::endl;
+        return;
+    }
+    for(size_t i = 0; i < ele.size() && i < dim_n; ++i)
+    {
+        elements[i][col] = ele.at(i);
     }
 }
 
@@ -280,6 +362,19 @@ bool CMatrix::SquareCheck(const std::string &func_name) const
     return true;
 }
 
+bool CMatrix::IsDiagonal() const
+{
+    if(dim_m != dim_n)
+        return false;
+
+    for(size_t i = 0; i < dim_n; ++i)
+        for(size_t j = 0; j < dim_m; ++j)
+            if(i != j && At(i, j) != 0.)
+                return false;
+
+    return true;
+}
+
 bool CMatrix::IsSymmetric() const
 {
     if(dim_m != dim_n)
@@ -309,6 +404,13 @@ double CMatrix::Det() const
 {
     if(!SquareCheck("Determinant"))
         return 0.;
+
+    if(IsDiagonal()) {
+        double deter = 1.;
+        for(size_t i = 0; i < dim_n; ++i)
+            deter *= At(i, i);
+        return deter;
+    }
 
     if(dim_n == 1) { // special case
         return At(0, 0);
@@ -412,18 +514,40 @@ void CMatrix::TransposeSelf()
 
 CMatrix CMatrix::Inverse() const
 {
-    double det = Det();
+    if(IsDiagonal()) {
 
-    if(det == 0.) {
-        std::cerr << "CMatrix Error: This matrix's determinant is 0, no inverse matrix exists."
-                  << std::endl;
-        return CMatrix(0);
+        CMatrix res(dim_n);
+
+        for(size_t i = 0; i < dim_n; ++i)
+        {
+            // no reverse
+            if(At(i, i) == 0.) {
+                std::cout << "CMatrix Warning: No inverse exist! "
+                          << i << " element is 0 for diagonal matrix."
+                          << std::endl;
+                return CMatrix();
+            } else {
+                res(i, i) = 1/At(i, i);
+            }
+        }
+
+        return res;
+
+    } else {
+
+        double det = Det();
+
+        if(det == 0.) {
+            std::cerr << "CMatrix Error: This matrix's determinant is 0, no inverse matrix exists."
+                      << std::endl;
+            return CMatrix(0);
+        }
+
+        CMatrix res = Cofactor();
+        res.TransposeSelf();
+
+        return res/det;
     }
-
-    CMatrix res = Cofactor();
-    res.TransposeSelf();
-
-    return res/det;
 }
 
 CMatrix CMatrix::LowerTri() const
@@ -458,12 +582,35 @@ CMatrix CMatrix::UpperTri() const
     return res;
 }
 
+CMatrix CMatrix::Diagonal() const
+{
+    if(!SquareCheck("Diagonal"))
+        return CMatrix();
+
+    CMatrix res(dim_n);
+    for(size_t i = 0; i < dim_n; ++i)
+        res(i, i) = At(i, i);
+
+    return res;
+}
+
 // return the Cholesky Decomposition Matrix L that follows M = LL^T
 // TODO, add complex number support
 CMatrix CMatrix::Cholesky() const
 {
     if(!SquareCheck("Cholesky Decomposition"))
         return CMatrix(0);
+
+    if(IsDiagonal()) {
+        CMatrix res(dim_n);
+
+        for(size_t i = 0; i < dim_n; ++i)
+        {
+            res(i, i) = sqrt(At(i, i));
+        }
+
+        return res;
+    }
 
     if(!IsSymmetric() || !IsPositiveDefinite()) {
         std::cerr << "CMatrix Error: Cholesky Decomposition is only valid for a "
