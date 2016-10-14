@@ -162,7 +162,7 @@ void CEstimator::GenerateCovMatrix()
     M_weight_inv = covariance_inv;
 }
 
-void CEstimator::SetParameter(const size_t &i, const double &p, const double &step, const double &fine_step)
+void CEstimator::SetParameter(const size_t &i, const double &p, const double &step)
 {
     if(i >= parameters.size())
     {
@@ -174,7 +174,7 @@ void CEstimator::SetParameter(const size_t &i, const double &p, const double &st
         return;
     }
 
-    Parameter new_p(p, step, fine_step);
+    Parameter new_p(p, step);
     parameters[i] = new_p;
 }
 
@@ -197,18 +197,29 @@ void CEstimator::SetPenaltyMatrix(const CMatrix &m)
 }
 
 // fit the function to data
-void CEstimator::Fit(int iter, int range, bool verbose)
+void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
 {
-    // tune parameters
-    int count = 1;
+    // coarse tune parameters
+    int iter = 1;
     do
     {
         if(verbose)
-            std::cout << std::endl << "Parameters optimization, iteration "
-                      << count << ", current chi square is "
+            std::cout << std::endl << "*Coarse* parameters optimization, iteration "
+                      << iter << ", current chi square is "
                       << GetReducedChiSquare()
                       << std::endl;
-    } while(Optimize(range, verbose) && count++ < iter);
+    } while(Optimize(range, 100, verbose) && iter++ < c_iter);
+
+    // fine tune parameters
+    iter = 1;
+    do
+    {
+        if(verbose)
+            std::cout << std::endl << "*Fine* parameters optimization, iteration "
+                      << iter << ", current chi square is "
+                      << GetReducedChiSquare()
+                      << std::endl;
+    } while(Optimize(range, 1, verbose) && iter++ < f_iter);
 
     if(verbose)
         std::cout << "Fit is done, final chi square is "
@@ -221,7 +232,7 @@ void CEstimator::Fit(int iter, int range, bool verbose)
 
 
 // optimize all the parameters independently
-bool CEstimator::Optimize(int steps, bool verbose)
+bool CEstimator::Optimize(int steps, int coarse, bool verbose)
 {
     bool optimized = false;
 
@@ -234,7 +245,7 @@ bool CEstimator::Optimize(int steps, bool verbose)
     {
         UnlockPar(i);
 
-        int minimum = 0;
+        int minimum = 0, step;
         double eval = Evaluate();
         do
         {
@@ -247,19 +258,23 @@ bool CEstimator::Optimize(int steps, bool verbose)
 
             // calculate steps
             CalcStep();
-
             // find the minimum within range
-            for(int i = 1; i <= steps; ++i)
+            for(int j = 1; j <= steps; ++j)
             {
-                double this_val_m = Evaluate(-i);
-                double this_val_p = Evaluate(i);
+                step = j*coarse;
+
+                // negative direction
+                double this_val_m = Evaluate(-step);
                 if(this_val_m < eval) {
                     eval = this_val_m;
-                    minimum = -i;
+                    minimum = -step;
                 }
+
+                // positive direction
+                double this_val_p = Evaluate(step);
                 if(this_val_p < eval) {
                     eval = this_val_p;
-                    minimum = i;
+                    minimum = step;
                 }
             }
 
@@ -313,9 +328,9 @@ CMatrix CEstimator::GetHessian()
         {
             formula->SetParameter(i, parameters.at(i).value);
             double gradient = GetFormulaVal(data.at(j).x);
-            formula->SetParameter(i, parameters.at(i).value + parameters.at(i).fine_step);
+            formula->SetParameter(i, parameters.at(i).value + parameters.at(i).base_step*0.01);
             gradient -= GetFormulaVal(data.at(j).x);
-            gradient /= parameters.at(i).fine_step;
+            gradient /= parameters.at(i).base_step*0.01;
 
             if(gradient == 0.)
                 J(j, i) = -1e-10; // put a small number

@@ -32,22 +32,17 @@ public:
         double value;
         double step;
         double base_step;
-        double fine_step;
         bool lock;
 
         Parameter()
         : initial(0.), prev_value(0.), value(0.),
-          step(0.), base_step(0.), fine_step(0.), lock(true)
+          step(0.), base_step(0.), lock(true)
         {};
-        Parameter(const double &v, const double &s = 0., const double &fs = 0.)
+        Parameter(const double &v, const double &s = 0.)
         : initial(v), prev_value(v), value(v), step(0), lock(true)
         {
-            fine_step = (fs < s)? fs : s;
-
             if(s == 0.)
                 base_step = value*0.01;
-            if(fs == 0.)
-                fine_step = value*0.0001;
         }
     };
 
@@ -74,8 +69,7 @@ public:
     void GenerateCovMatrix();
     void SetParameter(const size_t &i,
                       const double &p,
-                      const double &step = 0.,
-                      const double &fine_step = 0.);
+                      const double &step = 0.);
     void SetParameters(const std::vector<double> &p);
 
     // Maximum Likelihood:
@@ -106,8 +100,8 @@ public:
 
     // fit related
     // fit, iteration limitation, step range
-    virtual void Fit(int iter = 50, int range = 30, bool verbose = true);
-    virtual bool Optimize(int range, bool verbose = true);
+    virtual void Fit(int c_iter = 10, int f_iter = 50, int range = 30, bool verbose = true);
+    virtual bool Optimize(int range = 30, int coarse = 1, bool verbose = true);
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose);
     virtual CMatrix GetHessian();
