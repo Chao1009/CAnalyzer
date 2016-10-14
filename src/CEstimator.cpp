@@ -6,6 +6,8 @@
 #include "TF1.h"
 #include "TFormula.h"
 
+#define PI 3.14159265359
+
 using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
@@ -182,6 +184,57 @@ void CEstimator::SetPenaltyMatrix(const CMatrix &m)
     M_penalty_inv = m.Inverse();
 }
 
+// optimize all the parameters independently
+bool CEstimator::Optimize(int steps, bool fine, bool verbose)
+{
+    bool optimized = false;
+
+    // lock all the parameters first
+    for(size_t i = 0; i < parameters.size(); ++i)
+        LockPar(i);
+
+    // optimize one by one
+    for(size_t i = 0; i < parameters.size(); ++i)
+    {
+        UnlockPar(i);
+
+        int minimum = 0;
+        double eval = Evaluate();
+        do
+        {
+            // update parameters to the minimum
+            if(minimum != 0) {
+                NextStep(minimum, verbose);
+                minimum = 0;
+                optimized = true;
+            }
+
+            // calculate steps
+            CalcStep(fine);
+
+            // find the minimum within range
+            for(int i = 1; i <= steps; ++i)
+            {
+                double this_val_m = Evaluate(-i);
+                double this_val_p = Evaluate(i);
+                if(this_val_m < eval) {
+                    eval = this_val_m;
+                    minimum = -i;
+                }
+                if(this_val_p < eval) {
+                    eval = this_val_p;
+                    minimum = i;
+                }
+            }
+
+        } while(minimum != 0);
+
+        LockPar(i);
+    }
+
+    return optimized;
+}
+
 double CEstimator::Evaluate(const double &factor)
 {
     for(size_t i = 0; i < parameters.size(); ++i)
@@ -237,11 +290,16 @@ CMatrix CEstimator::GetHessian()
     return J_w.Transpose()*J_w;
 }
 
-void CEstimator::CalcStep()
+void CEstimator::CalcStep(bool fine)
 {
     CMatrix rho_inv(1, parameters.size());
     for(size_t i = 0; i < rho_inv.DimN(); ++i)
-        rho_inv(0, i) = 1/parameters.at(i).base_step;
+    {
+        if(fine)
+            rho_inv(0, i) = 1/parameters.at(i).fine_step;
+        else
+            rho_inv(0, i) = 1/parameters.at(i).base_step;
+    }
 
     CMatrix step = rho_inv*GetHessian();
     for(size_t i = 0; i < step.DimM(); ++i)
@@ -258,7 +316,7 @@ void CEstimator::NextStep(const double &factor, bool verbose)
         parameters[i].prev_value = parameters[i].value;
         parameters[i].value += parameters[i].step*factor;
         if(verbose) {
-            std::cout << "Parameter " << i << " is changed, "
+            std::cout << "Parameter " << i << " is updated, "
                       << "previous value: " << parameters[i].prev_value
                       << ", current value: " << parameters[i].value
                       << std::endl;
@@ -330,8 +388,8 @@ double CEstimator::GetRootMeanSquaredError()
     return sqrt(GetReducedChiSquare());
 }
 
-// Akaike Information Criterion L* + 2m
-double CEstimator::GetAIC()
+// get negative log likelihood for a Gaussian process
+double CEstimator::GetNLL_Gaussian()
 {
     UpdatePars();
     double result = 0;
@@ -345,17 +403,35 @@ double CEstimator::GetAIC()
     }
 
     result = log(result/(data.size() - parameters.size()) + 1.);
-    return data.size()*(result + log(2.*3.14159265358979) + 1.) + parameters.size();
+    return data.size()*(result + log(2.*PI) + 1.) - parameters.size();
+}
+
+// Akaike Information Criterion L* + 2m
+double CEstimator::GetAkaikeCriterion()
+{
+    return GetNLL_Gaussian() + 2*parameters.size();
 }
 
 // Bayesian Information Criterion L* + mln(n)
-double CEstimator::GetBIC()
+double CEstimator::GetBayesianCriterion()
 {
-    return GetAIC() - 2.*parameters.size() + parameters.size()*log((double)data.size());
+    return GetNLL_Gaussian() + parameters.size()*log((double)data.size());
 }
 
 // Hannan Criterion L* + cmln(ln(n))
-// to be implemented
+double CEstimator::GetHannanCriterion(const double &c)
+{
+    if(c < 2) {
+        std::cout << "CEstimator Warning: The constant c in Hannan Criterion should "
+                  << "be larger or equal to 2."
+                  << std::endl;
+    }
+    return GetNLL_Gaussian() + parameters.size()*log(log((double)data.size()))*c;
+}
 
 // Kashyap Criterion L* + mln(n/2pi) + ln|F_M|
 // F_M is Fisher information matrix, to be implemented
+double CEstimator::GetKashyapCriterion(const CMatrix &F_M)
+{
+    return GetNLL_Gaussian() + parameters.size()*log((double)data.size()/2./PI) + log(abs(det(F_M)));
+}

@@ -103,18 +103,22 @@ public:
     }
 
     // fit
+    virtual bool Optimize(int step = 20, bool fine_step = false, bool verbose = true);
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose = false);
     virtual CMatrix GetHessian();
-    virtual void CalcStep();
+    virtual void CalcStep(bool fine = false);
 
     // fit quality check
-    double GetReducedChiSquare();
-    double GetPearsonChiSquare();
-    double GetAbsoluteError();
-    double GetRootMeanSquaredError();
-    double GetAIC();
-    double GetBIC();
+    virtual double GetReducedChiSquare();
+    virtual double GetPearsonChiSquare();
+    virtual double GetAbsoluteError();
+    virtual double GetNLL_Gaussian();
+    virtual double GetRootMeanSquaredError();
+    virtual double GetAkaikeCriterion();
+    virtual double GetBayesianCriterion();
+    virtual double GetHannanCriterion(const double &c);
+    virtual double GetKashyapCriterion(const CMatrix &F_M);
 
 private:
     TFormula *formula;
