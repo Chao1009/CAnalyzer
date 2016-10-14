@@ -11,7 +11,7 @@
 using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
-: formula(nullptr)
+: formula(nullptr), step_range(30)
 {
     if(!path.empty())
         LoadFormula(path);
@@ -67,6 +67,7 @@ void CEstimator::LoadFormula(const std::string &path)
                       << std::endl;
     }
 
+    UpdatePars();
     c_parser.CloseFile();
 }
 
@@ -183,6 +184,42 @@ void CEstimator::SetPenaltyMatrix(const CMatrix &m)
     // Set Vbeta, but only Vbeta^(-1) is used to evaluate, so do inverse here
     M_penalty_inv = m.Inverse();
 }
+
+// fit the function to data
+void CEstimator::Fit(int c_iter, int f_iter, bool verbose)
+{
+    // coarse tune
+    int count = 1;
+    do
+    {
+        if(verbose)
+            std::cout << std::endl << "*Coarse* step optimization, iteration "
+                      << count << ", current chi square is "
+                      << GetReducedChiSquare()
+                      << std::endl;
+    } while(Optimize(step_range, false, verbose) && count++ < c_iter);
+
+    // fine tune
+    count = 1;
+    do
+    {
+        if(verbose)
+            std::cout << std::endl << "*Fine* step optimization, iteration "
+                      << count << ", current chi square is "
+                      << GetReducedChiSquare()
+                      << std::endl;
+        // set step range to be 100 since fine_step is about 1/100 of step
+    } while(Optimize(100, true, verbose) && count++ < f_iter);
+
+    if(verbose)
+        std::cout << "Fit is done, final chi square is "
+                  << GetReducedChiSquare()
+                  << std::endl;
+
+    // update the parameters to formula
+    UpdatePars();
+}
+
 
 // optimize all the parameters independently
 bool CEstimator::Optimize(int steps, bool fine, bool verbose)
@@ -335,6 +372,11 @@ TFormula *CEstimator::GetFormula()
     // make sure its the latest value, since Evaluate may modify it
     UpdatePars();
     return formula;
+}
+
+double CEstimator::GetFormulaVal(double x)
+{
+    return formula->Eval(x);
 }
 
 double CEstimator::GetReducedChiSquare()
