@@ -64,7 +64,6 @@ public:
     void UpdatePars();
     void SetFormula(TF1 *tf);
     void SetFormula(const char *c);
-    void SetStepRange(const int &s) {step_range = s;};
     void SetDataPoints(const std::vector<double> &x,
                        const std::vector<double> &y,
                        const std::vector<double> &err);
@@ -102,16 +101,16 @@ public:
             return Parameter(0);
         return parameters.at(i);
     }
-    double GetFormulaVal(double x);
+    double GetFormulaVal(const double &x);
 
     // fit related
-    // fit, coarse iteration limitation, fine iteration limitation
-    virtual void Fit(int c_iter = 50, int f_iter = 50, bool verbose = true);
-    virtual bool Optimize(int step = 30, bool fine_step = false, bool verbose = true);
+    // fit, iteration limitation, step range
+    virtual void Fit(int iter = 50, int range = 30, bool verbose = true);
+    virtual bool Optimize(int range, bool verbose = true);
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose);
     virtual CMatrix GetHessian();
-    virtual void CalcStep(bool fine = false);
+    virtual void CalcStep();
 
     // fit quality check
     virtual double GetReducedChiSquare();
@@ -126,7 +125,6 @@ public:
 
 private:
     TFormula *formula;
-    int step_range;
     CMatrix M_weight_inv;
     CMatrix M_penalty_inv;
     std::vector<DataPoint> data;

@@ -11,7 +11,7 @@
 using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
-: formula(nullptr), step_range(30)
+: formula(nullptr)
 {
     if(!path.empty())
         LoadFormula(path);
@@ -186,30 +186,18 @@ void CEstimator::SetPenaltyMatrix(const CMatrix &m)
 }
 
 // fit the function to data
-void CEstimator::Fit(int c_iter, int f_iter, bool verbose)
+void CEstimator::Fit(int iter, int range, bool verbose)
 {
-    // coarse tune
+    // tune parameters
     int count = 1;
     do
     {
         if(verbose)
-            std::cout << std::endl << "*Coarse* step optimization, iteration "
+            std::cout << std::endl << "Parameters optimization, iteration "
                       << count << ", current chi square is "
                       << GetReducedChiSquare()
                       << std::endl;
-    } while(Optimize(step_range, false, verbose) && count++ < c_iter);
-
-    // fine tune
-    count = 1;
-    do
-    {
-        if(verbose)
-            std::cout << std::endl << "*Fine* step optimization, iteration "
-                      << count << ", current chi square is "
-                      << GetReducedChiSquare()
-                      << std::endl;
-        // set step range to be 100 since fine_step is about 1/100 of step
-    } while(Optimize(100, true, verbose) && count++ < f_iter);
+    } while(Optimize(range, verbose) && count++ < iter);
 
     if(verbose)
         std::cout << "Fit is done, final chi square is "
@@ -222,7 +210,7 @@ void CEstimator::Fit(int c_iter, int f_iter, bool verbose)
 
 
 // optimize all the parameters independently
-bool CEstimator::Optimize(int steps, bool fine, bool verbose)
+bool CEstimator::Optimize(int steps, bool verbose)
 {
     bool optimized = false;
 
@@ -247,7 +235,7 @@ bool CEstimator::Optimize(int steps, bool fine, bool verbose)
             }
 
             // calculate steps
-            CalcStep(fine);
+            CalcStep();
 
             // find the minimum within range
             for(int i = 1; i <= steps; ++i)
@@ -286,7 +274,7 @@ double CEstimator::Evaluate(const double &factor)
 
     CMatrix p(1, data.size());
     for(size_t i = 0; i < data.size(); ++i)
-        p(0, i) = data.at(i).val - formula->Eval(data.at(i).x);
+        p(0, i) = data.at(i).val - GetFormulaVal(data.at(i).x);
 
     double result = p*M_weight_inv*transpose(p);
 
@@ -312,11 +300,12 @@ CMatrix CEstimator::GetHessian()
     {
         for(size_t i = 0; i < J.DimM(); ++i)
         {
-            double gradient = formula->Eval(data.at(j).val);
-            formula->SetParameter(i, parameters.at(i).value + parameters.at(i).fine_step);
-            gradient -= formula->Eval(data.at(j).val);
             formula->SetParameter(i, parameters.at(i).value);
+            double gradient = GetFormulaVal(data.at(j).x);
+            formula->SetParameter(i, parameters.at(i).value + parameters.at(i).fine_step);
+            gradient -= GetFormulaVal(data.at(j).x);
             gradient /= parameters.at(i).fine_step;
+
             if(gradient == 0.)
                 J(j, i) = -1e-10; // put a small number
             else
@@ -327,28 +316,18 @@ CMatrix CEstimator::GetHessian()
     return J_w.Transpose()*J_w;
 }
 
-void CEstimator::CalcStep(bool fine)
+void CEstimator::CalcStep()
 {
-/* still has problemn
-    CMatrix rho_inv(1, parameters.size());
-    for(size_t i = 0; i < rho_inv.DimM(); ++i)
+    CMatrix rho(parameters.size(), 1);
+    for(size_t i = 0; i < rho.DimN(); ++i)
     {
-        if(fine)
-            rho_inv(0, i) = 1/parameters.at(i).fine_step;
-        else
-            rho_inv(0, i) = 1/parameters.at(i).base_step;
+        rho(i, 0) = parameters.at(i).base_step*parameters.at(i).base_step;
     }
 
-    CMatrix step = rho_inv*GetHessian();
-    for(size_t i = 0; i < step.DimM(); ++i)
-        parameters[i].step = 1/step(0, i);
-*/
-    for(size_t i = 0; i < parameters.size(); ++i)
-    {
-        if(fine)
-            parameters[i].step = parameters[i].fine_step;
-        else
-            parameters[i].step = parameters[i].base_step;
+    CMatrix step = GetHessian()*rho;
+
+    for(size_t i = 0; i < step.DimN(); ++i) {
+        parameters[i].step = 1./step(i, 0);
     }
 }
 
@@ -383,7 +362,7 @@ TFormula *CEstimator::GetFormula()
     return formula;
 }
 
-double CEstimator::GetFormulaVal(double x)
+double CEstimator::GetFormulaVal(const double &x)
 {
     return formula->Eval(x);
 }
@@ -396,7 +375,7 @@ double CEstimator::GetReducedChiSquare()
     for(size_t i = 0; i < data.size(); ++i)
     {
         double sig = data.at(i).error;
-        double expect_val = formula->Eval(data.at(i).x);
+        double expect_val = GetFormulaVal(data.at(i).x);
         double data_val = data.at(i).val;
         if(sig != 0.)
             result += (data_val - expect_val)*(data_val - expect_val)/sig/sig;
@@ -414,7 +393,7 @@ double CEstimator::GetPearsonChiSquare()
 
     for(size_t i = 0; i < data.size(); ++i)
     {
-        double expect_val = formula->Eval(data.at(i).x);
+        double expect_val = GetFormulaVal(data.at(i).x);
         double data_val = data.at(i).val;
         if(expect_val != 0.)
             result += (data_val - expect_val)*(data_val - expect_val)/expect_val;
@@ -429,7 +408,7 @@ double CEstimator::GetAbsoluteError()
     double result = 0;
     for(size_t i = 0; i < data.size(); ++i)
     {
-        result += abs(data.at(i).val - formula->Eval(data.at(i).x));
+        result += abs(data.at(i).val - GetFormulaVal(data.at(i).x));
     }
     return result;
 }
@@ -448,7 +427,7 @@ double CEstimator::GetNLL_Gaussian()
     // get RSS, residual sum of squares
     for(size_t i = 0; i < data.size(); ++i)
     {
-        double expect_val = formula->Eval(data.at(i).x);
+        double expect_val = GetFormulaVal(data.at(i).x);
         double data_val = data.at(i).val;
         result += (data_val - expect_val)*(data_val - expect_val);
     }
