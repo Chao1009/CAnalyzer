@@ -156,7 +156,7 @@ void CEstimator::GenerateCovMatrix()
         if(data.at(i).error != 0.)
             covariance_inv(i, i) = 1/data.at(i).error/data.at(i).error;
         else
-            covariance_inv(i, i) = 1e-4/data.at(i).val/data.at(i).val; // set 1% level
+            covariance_inv(i, i) = 1e4/data.at(i).val/data.at(i).val; // set 1% level
     }
 
     M_weight_inv = covariance_inv;
