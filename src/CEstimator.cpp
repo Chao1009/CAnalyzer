@@ -321,7 +321,7 @@ void CEstimator::CalcStep()
     CMatrix rho(parameters.size(), 1);
     for(size_t i = 0; i < rho.DimN(); ++i)
     {
-        rho(i, 0) = parameters.at(i).base_step*parameters.at(i).base_step;
+        rho(i, 0) = parameters.at(i).base_step;
     }
 
     CMatrix step = GetHessian()*rho;
