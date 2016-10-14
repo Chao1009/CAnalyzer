@@ -1,18 +1,86 @@
 #include <iostream>
+#include <fstream>
+#include <iomanip>
 #include "CEstimator.h"
+#include "ConfigParser.h"
 #include "TF1.h"
 #include "TFormula.h"
 
 using namespace cana;
 
-CEstimator::CEstimator()
+CEstimator::CEstimator(const std::string &path)
 : formula(nullptr)
 {
+    if(!path.empty())
+        LoadFormula(path);
 }
 
 CEstimator::~CEstimator()
 {
     DeleteFormula();
+}
+
+void CEstimator::LoadFormula(const std::string &path)
+{
+    ConfigParser c_parser;
+
+    if(!c_parser.OpenFile(path)) {
+        std::cerr << "CEstimator Error: cannot open file "
+                  << path << ", abort function loading."
+                  << std::endl;
+        return;
+    }
+
+    while(c_parser.ParseLine())
+    {
+        // first line will be the function
+        if(c_parser.NbofElements() > 0)
+            break;
+    }
+
+    std::string function;
+    // glue all the parts together
+    // since there probably is space in the function expression
+    // which can be used as the splitter for parameters
+    for(auto &ele : c_parser.TakeAll())
+    {
+        function += ele.String();
+    }
+
+    SetFormula(function.c_str());
+
+    size_t idx = 0;
+    // continue reading the parameters
+    while(c_parser.ParseLine())
+    {
+        if(!c_parser.NbofElements())
+            continue;
+
+        if(idx < parameters.size())
+            parameters[idx++] = Parameter(c_parser.TakeFirst().Double());
+        else
+            std::cout << "CEstimator Warning: Reading "
+                      << idx << " parameters, but the function only accepts "
+                      << parameters.size()
+                      << std::endl;
+    }
+
+    c_parser.CloseFile();
+}
+
+void CEstimator::SaveFormula(const std::string &path)
+{
+    UpdatePars();
+
+    std::ofstream output(path);
+    // write down function
+    output << formula->GetExpFormula().Data() << std::endl;
+
+    // write down parameters
+    for(int i = 0; i < formula->GetNpar(); ++i)
+        output << std::setw(12) << formula->GetParameter(i) << std::endl;
+
+    output.close();
 }
 
 void CEstimator::DeleteFormula()
@@ -31,7 +99,6 @@ void CEstimator::SetFormula(const char *c)
     // thus put false to not add it to root global list
     formula = new TFormula("myform", c, false);
     parameters.resize(formula->GetNpar());
-    std::cout << formula->GetExpFormula().Data() << std::endl;
 }
 
 void CEstimator::SetFormula(TF1 *tf)

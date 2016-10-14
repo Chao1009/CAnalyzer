@@ -52,10 +52,12 @@ public:
     };
 
 public:
-    CEstimator();
+    CEstimator(const std::string &path = "");
     virtual ~CEstimator();
 
     // manipulate members
+    void LoadFormula(const std::string &path);
+    void SaveFormula(const std::string &path);
     void DeleteFormula();
     void UnlockPar(const size_t &i) {parameters[i].lock = false;};
     void LockPar(const size_t &i) {parameters[i].lock = true;};
