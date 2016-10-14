@@ -329,8 +329,9 @@ CMatrix CEstimator::GetHessian()
 
 void CEstimator::CalcStep(bool fine)
 {
+/* still has problemn
     CMatrix rho_inv(1, parameters.size());
-    for(size_t i = 0; i < rho_inv.DimN(); ++i)
+    for(size_t i = 0; i < rho_inv.DimM(); ++i)
     {
         if(fine)
             rho_inv(0, i) = 1/parameters.at(i).fine_step;
@@ -341,6 +342,14 @@ void CEstimator::CalcStep(bool fine)
     CMatrix step = rho_inv*GetHessian();
     for(size_t i = 0; i < step.DimM(); ++i)
         parameters[i].step = 1/step(0, i);
+*/
+    for(size_t i = 0; i < parameters.size(); ++i)
+    {
+        if(fine)
+            parameters[i].step = parameters[i].fine_step;
+        else
+            parameters[i].step = parameters[i].base_step;
+    }
 }
 
 void CEstimator::NextStep(const double &factor, bool verbose)
