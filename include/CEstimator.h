@@ -71,6 +71,7 @@ public:
                        const double *x,
                        const double *y,
                        const double *err);
+    void GenerateCovMatrix();
     void SetParameter(const size_t &i,
                       const double &p,
                       const double &step = 0.,

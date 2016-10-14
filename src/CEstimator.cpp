@@ -131,14 +131,7 @@ void CEstimator::SetDataPoints(const std::vector<double> &x,
         data.emplace_back(x[i], y[i], err[i]);
     }
 
-    // automatically set the weight matrix as covariance
-    CMatrix covariance_inv(err.size());
-    for(size_t i = 0; i < err.size(); ++i)
-    {
-        covariance_inv(i, i) = 1/err.at(i)/err.at(i);
-    }
-
-    M_weight_inv = covariance_inv;
+    GenerateCovMatrix();
 }
 
 void CEstimator::SetDataPoints(const size_t &n, const double *x, const double *y, const double *err)
@@ -149,6 +142,24 @@ void CEstimator::SetDataPoints(const size_t &n, const double *x, const double *y
     {
         data.emplace_back(x[i], y[i], err[i]);
     }
+
+    GenerateCovMatrix();
+}
+
+// generate the covariance matrix from data
+void CEstimator::GenerateCovMatrix()
+{
+    // automatically set the weight matrix as covariance
+    CMatrix covariance_inv(data.size());
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        if(data.at(i).error != 0.)
+            covariance_inv(i, i) = 1/data.at(i).error/data.at(i).error;
+        else
+            covariance_inv(i, i) = 1e-4/data.at(i).val/data.at(i).val; // set 1% level
+    }
+
+    M_weight_inv = covariance_inv;
 }
 
 void CEstimator::SetParameter(const size_t &i, const double &p, const double &step, const double &fine_step)
