@@ -91,6 +91,14 @@ public:
         FillElements(ele);
     }
 
+    operator double() const
+    {
+        if(dim_n == 0 || dim_m == 0)
+            return 0.;
+
+        return At(0, 0);
+    }
+
     double **_GetPtr() {return elements;};
     void _NullPtr(){elements = nullptr;};
 

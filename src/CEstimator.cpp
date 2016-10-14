@@ -3,6 +3,8 @@
 #include "TF1.h"
 #include "TFormula.h"
 
+using namespace cana;
+
 CEstimator::CEstimator()
 : formula(nullptr)
 {
@@ -18,6 +20,7 @@ void CEstimator::DeleteFormula()
     if(formula)
         delete formula, formula = nullptr;
     parameters.clear();
+    M_penalty_inv = CMatrix();
 }
 
 void CEstimator::SetFormula(const char *c)
@@ -40,9 +43,11 @@ void CEstimator::SetFormula(TF1 *tf)
         parameters.emplace_back(tf->GetParameter(i));
 }
 
-void CEstimator::SetDataPoints(const std::vector<double> &x, const std::vector<double> &y)
+void CEstimator::SetDataPoints(const std::vector<double> &x,
+                               const std::vector<double> &y,
+                               const std::vector<double> &err)
 {
-    if(x.size() != y.size())
+    if(x.size() != y.size() || x.size() != err.size())
     {
         std::cerr << "CEstimator Error: unmatched vector size from SetDataPoints!"
                   << std::endl;
@@ -53,17 +58,26 @@ void CEstimator::SetDataPoints(const std::vector<double> &x, const std::vector<d
 
     for(size_t i = 0; i < x.size(); ++i)
     {
-        data.emplace_back(x[i], y[i]);
+        data.emplace_back(x[i], y[i], err[i]);
     }
+
+    // automatically set the weight matrix as covariance
+    CMatrix covariance_inv(err.size());
+    for(size_t i = 0; i < err.size(); ++i)
+    {
+        covariance_inv(i, i) = 1/err.at(i)/err.at(i);
+    }
+
+    M_weight_inv = covariance_inv;
 }
 
-void CEstimator::SetDataPoints(const size_t &n, const double *x, const double *y)
+void CEstimator::SetDataPoints(const size_t &n, const double *x, const double *y, const double *err)
 {
     data.clear();
 
     for(size_t i = 0; i < n; ++i)
     {
-        data.emplace_back(x[i], y[i]);
+        data.emplace_back(x[i], y[i], err[i]);
     }
 }
 
@@ -89,6 +103,18 @@ void CEstimator::SetParameters(const std::vector<double> &p)
         SetParameter(i, p.at(i));
 }
 
+void CEstimator::SetWeightMatrix(const CMatrix &m)
+{
+    // Set V, but only V^(-1) is used to evaluate, so do inverse here
+    M_weight_inv = m.Inverse();
+}
+
+void CEstimator::SetPenaltyMatrix(const CMatrix &m)
+{
+    // Set Vbeta, but only Vbeta^(-1) is used to evaluate, so do inverse here
+    M_penalty_inv = m.Inverse();
+}
+
 double CEstimator::Evaluate(const double &factor)
 {
     for(size_t i = 0; i < parameters.size(); ++i)
@@ -105,11 +131,20 @@ double CEstimator::Evaluate(const double &factor)
     for(size_t i = 0; i < data.size(); ++i)
         p(0, i) = data.at(i).val - formula->Eval(data.at(i).x);
 
-    CMatrix p_t = p.Transpose();
+    double result = p*M_weight_inv*transpose(p);
 
-    CMatrix result = p*V_inv*p_t;
+    // penalty matrix exists, calculate penalty term
+    if(M_penalty_inv.DimN() == parameters.size() &&
+       M_penalty_inv.DimM() == parameters.size())
+    {
+        CMatrix b(1, parameters.size());
+        for(size_t i = 0; i < parameters.size(); ++i)
+            b(0, i) = parameters.at(i).value - parameters.at(i).initial;
 
-    return result.At(0, 0);
+        result += b*M_penalty_inv*transpose(b);
+    }
+
+    return result;
 }
 
 CMatrix CEstimator::GetHessian()
@@ -125,10 +160,13 @@ CMatrix CEstimator::GetHessian()
             gradient -= formula->Eval(data.at(j).val);
             formula->SetParameter(i, parameters.at(i).value);
             gradient /= parameters.at(i).fine_step;
-            J(j, i) = -gradient;
+            if(gradient == 0.)
+                J(j, i) = -1e-10; // put a small number
+            else
+                J(j, i) = -gradient;
         }
     }
-    CMatrix J_w = V_inv.Cholesky()*J;
+    CMatrix J_w = M_weight_inv.Cholesky()*J;
     return J_w.Transpose()*J_w;
 }
 
@@ -145,6 +183,7 @@ void CEstimator::CalcStep()
 
 void CEstimator::NextStep(const double &factor, bool verbose)
 {
+    // change the parameters according to its step size
     for(size_t i = 0; i < parameters.size(); ++i)
     {
         if(parameters[i].lock)
@@ -159,3 +198,97 @@ void CEstimator::NextStep(const double &factor, bool verbose)
         }
     }
 }
+
+void CEstimator::UpdatePars()
+{
+    for(size_t i = 0; i < parameters.size(); ++i)
+        formula->SetParameter(i, parameters.at(i).value);
+}
+
+TFormula *CEstimator::GetFormula()
+{
+    // make sure its the latest value, since Evaluate may modify it
+    UpdatePars();
+    return formula;
+}
+
+double CEstimator::GetReducedChiSquare()
+{
+    UpdatePars();
+    double result = 0;
+    size_t ndof = data.size() - parameters.size();
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        double sig = data.at(i).error;
+        double expect_val = formula->Eval(data.at(i).x);
+        double data_val = data.at(i).val;
+        if(sig != 0.)
+            result += (data_val - expect_val)*(data_val - expect_val)/sig/sig;
+        else
+            ndof--;
+    }
+
+    return result/(double)ndof;
+}
+
+double CEstimator::GetPearsonChiSquare()
+{
+    UpdatePars();
+    double result = 0;
+
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        double expect_val = formula->Eval(data.at(i).x);
+        double data_val = data.at(i).val;
+        if(expect_val != 0.)
+            result += (data_val - expect_val)*(data_val - expect_val)/expect_val;
+    }
+
+    return result;
+}
+
+double CEstimator::GetAbsoluteError()
+{
+    UpdatePars();
+    double result = 0;
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        result += abs(data.at(i).val - formula->Eval(data.at(i).x));
+    }
+    return result;
+}
+
+double CEstimator::GetRootMeanSquaredError()
+{
+    return sqrt(GetReducedChiSquare());
+}
+
+// Akaike Information Criterion L* + 2m
+double CEstimator::GetAIC()
+{
+    UpdatePars();
+    double result = 0;
+
+    // get RSS, residual sum of squares
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        double expect_val = formula->Eval(data.at(i).x);
+        double data_val = data.at(i).val;
+        result += (data_val - expect_val)*(data_val - expect_val);
+    }
+
+    result = log(result/(data.size() - parameters.size()) + 1.);
+    return data.size()*(result + log(2.*3.14159265358979) + 1.) + parameters.size();
+}
+
+// Bayesian Information Criterion L* + mln(n)
+double CEstimator::GetBIC()
+{
+    return GetAIC() - 2.*parameters.size() + parameters.size()*log((double)data.size());
+}
+
+// Hannan Criterion L* + cmln(ln(n))
+// to be implemented
+
+// Kashyap Criterion L* + mln(n/2pi) + ln|F_M|
+// F_M is Fisher information matrix, to be implemented

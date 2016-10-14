@@ -14,13 +14,14 @@ public:
     {
         double x;
         double val;
+        double error;
 
         DataPoint()
-        : x(0.), val(0.)
+        : x(0.), val(0.), error(0.)
         {};
 
-        DataPoint(const double &xi, const double &vi)
-        : x(xi), val(vi)
+        DataPoint(const double &xi, const double &vi, const double &err)
+        : x(xi), val(vi), error(err)
         {};
     };
 
@@ -54,39 +55,69 @@ public:
     CEstimator();
     virtual ~CEstimator();
 
+    // manipulate members
     void DeleteFormula();
+    void UnlockPar(const size_t &i) {parameters[i].lock = false;};
+    void LockPar(const size_t &i) {parameters[i].lock = true;};
+    void UpdatePars();
     void SetFormula(TF1 *tf);
     void SetFormula(const char *c);
-    void SetDataPoints(const std::vector<double> &x, const std::vector<double> &y);
-    void SetDataPoints(const size_t &n, const double *x, const double *y);
+    void SetDataPoints(const std::vector<double> &x,
+                       const std::vector<double> &y,
+                       const std::vector<double> &err);
+    void SetDataPoints(const size_t &n,
+                       const double *x,
+                       const double *y,
+                       const double *err);
     void SetParameter(const size_t &i,
                       const double &p,
                       const double &step = 0.,
                       const double &fine_step = 0.);
     void SetParameters(const std::vector<double> &p);
-    void SetCovarianceMatrix(const CMatrix &m) {V_inv = m.Inverse();};
-    void UnlockPar(const size_t &i) {parameters[i].lock = false;};
-    void LockPar(const size_t &i) {parameters[i].lock = true;};
+
+    // Maximum Likelihood:
+    // weight matrix <- covariance matrix
+    // penalty matrix <- comes from physical meaning to restrict the change
+
+    // Weighted Least Square
+    // weight matrix <- weighting the data points
+    // penalty matrix <- none
+
+    // Least Square
+    // weight matrix <- unity matrix
+    // penalty matrix <- none
+    void SetWeightMatrix(const CMatrix &m);
+    void SetPenaltyMatrix(const CMatrix &m);
+
+    // get members
+    size_t GetNpar() const {return parameters.size();};
+    TFormula *GetFormula();
+    std::vector<Parameter> GetParameters() const {return parameters;};
+    Parameter GetParameter(const size_t &i) const
+    {
+        if(i >= parameters.size())
+            return Parameter(0);
+        return parameters.at(i);
+    }
+
+    // fit
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose = false);
     virtual CMatrix GetHessian();
     virtual void CalcStep();
 
-    size_t GetNpar() {return parameters.size();};
-
-    Parameter GetParameter(const size_t &i)
-    {
-        if(i >= parameters.size())
-            return Parameter(0);
-        return parameters.at(i);
-    };
-
-    TFormula *GetFormula() {return formula;};
-    std::vector<Parameter> GetParameters() {return parameters;};
+    // fit quality check
+    double GetReducedChiSquare();
+    double GetPearsonChiSquare();
+    double GetAbsoluteError();
+    double GetRootMeanSquaredError();
+    double GetAIC();
+    double GetBIC();
 
 private:
     TFormula *formula;
-    CMatrix V_inv;
+    CMatrix M_weight_inv;
+    CMatrix M_penalty_inv;
     std::vector<DataPoint> data;
     std::vector<Parameter> parameters;
 };
