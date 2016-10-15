@@ -100,7 +100,7 @@ public:
 
     // fit related
     // fit, iteration limitation, step range
-    virtual void Fit(int c_iter = 10, int f_iter = 50, int range = 30, bool verbose = true);
+    virtual void Fit(int c_iter = 50, int f_iter = 50, int range = 30, bool verbose = true);
     virtual bool Optimize(int range = 30, int coarse = 1, bool verbose = true);
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose);
