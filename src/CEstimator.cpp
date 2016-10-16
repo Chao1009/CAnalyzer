@@ -91,7 +91,7 @@ void CEstimator::DeleteFormula()
     if(formula)
         delete formula, formula = nullptr;
     parameters.clear();
-    M_penalty_inv = CMatrix();
+    M_penalty = CMatrix();
 }
 
 void CEstimator::SetFormula(const char *c)
@@ -159,7 +159,7 @@ void CEstimator::GenerateCovMatrix()
             covariance_inv(i, i) = 1e4/data.at(i).val/data.at(i).val; // set 1% level
     }
 
-    M_weight_inv = covariance_inv;
+    M_weight = covariance_inv;
 }
 
 void CEstimator::SetParameter(const size_t &i, const double &p, const double &step)
@@ -186,45 +186,55 @@ void CEstimator::SetParameters(const std::vector<double> &p)
 
 void CEstimator::SetWeightMatrix(const CMatrix &m)
 {
-    // Set V, but only V^(-1) is used to evaluate, so do inverse here
-    M_weight_inv = m.Inverse();
+    M_weight = m;
 }
 
 void CEstimator::SetPenaltyMatrix(const CMatrix &m)
 {
-    // Set Vbeta, but only Vbeta^(-1) is used to evaluate, so do inverse here
-    M_penalty_inv = m.Inverse();
+    M_penalty = m;
 }
 
 // fit the function to data
 void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
 {
     // coarse tune parameters
-    int iter = 1;
-    do
+    int iter = 0;
+    while(iter++ < c_iter)
     {
-        if(verbose)
+        if(verbose) {
             std::cout << std::endl << "*Coarse* parameters optimization, iteration "
                       << iter << ", current chi square is "
                       << GetReducedChiSquare()
                       << std::endl;
-    } while(Optimize(range, 100, verbose) && iter++ < c_iter);
+        }
+
+        // cannot optimize anymore
+        if(!Optimize(range, 100, verbose))
+            break;
+
+    }
 
     // fine tune parameters
-    iter = 1;
-    do
+    iter = 0;
+    while(iter++ < f_iter)
     {
-        if(verbose)
+        if(verbose) {
             std::cout << std::endl << "*Fine* parameters optimization, iteration "
                       << iter << ", current chi square is "
                       << GetReducedChiSquare()
                       << std::endl;
-    } while(Optimize(range, 1, verbose) && iter++ < f_iter);
+        }
 
-    if(verbose)
+        if(!Optimize(range, 1, verbose))
+            break;
+
+    }
+
+    if(verbose) {
         std::cout << "Fit is done, final chi square is "
                   << GetReducedChiSquare()
                   << std::endl;
+    }
 
     // update the parameters to formula
     UpdatePars();
@@ -302,17 +312,17 @@ double CEstimator::Evaluate(const double &factor)
     for(size_t i = 0; i < data.size(); ++i)
         p(0, i) = data.at(i).val - GetFormulaVal(data.at(i).x);
 
-    double result = p*M_weight_inv*transpose(p);
+    double result = p*M_weight*transpose(p);
 
     // penalty matrix exists, calculate penalty term
-    if(M_penalty_inv.DimN() == parameters.size() &&
-       M_penalty_inv.DimM() == parameters.size())
+    if(M_penalty.DimN() == parameters.size() &&
+       M_penalty.DimM() == parameters.size())
     {
         CMatrix b(1, parameters.size());
         for(size_t i = 0; i < parameters.size(); ++i)
             b(0, i) = parameters.at(i).value - parameters.at(i).initial;
 
-        result += b*M_penalty_inv*transpose(b);
+        result += b*M_penalty*transpose(b);
     }
 
     return result;
@@ -338,7 +348,7 @@ CMatrix CEstimator::GetHessian()
                 J(j, i) = -gradient;
         }
     }
-    CMatrix J_w = M_weight_inv.Cholesky()*J;
+    CMatrix J_w = M_weight.Cholesky()*J;
     return J_w.Transpose()*J_w;
 }
 

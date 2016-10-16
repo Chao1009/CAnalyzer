@@ -120,8 +120,8 @@ public:
 
 private:
     TFormula *formula;
-    CMatrix M_weight_inv;
-    CMatrix M_penalty_inv;
+    CMatrix M_weight;
+    CMatrix M_penalty;
     std::vector<DataPoint> data;
     std::vector<Parameter> parameters;
 };
