@@ -321,10 +321,11 @@ double CEstimator::Evaluate(const double &factor)
         CMatrix b(1, parameters.size());
         for(size_t i = 0; i < parameters.size(); ++i)
         {
+            b(0, i) = parameters.at(i).initial - parameters.at(i).value;
+
+            // intended change
             if(!parameters.at(i).lock)
-                b(0, i) = parameters.at(i).step*factor;
-            else // no change on this parameter
-                b(0, i) = 0.;
+                b(0, i) -= parameters.at(i).step*factor;
         }
         result += b*M_penalty*transpose(b);
     }
