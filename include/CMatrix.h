@@ -42,12 +42,15 @@ public:
     CMatrix Identity() const;
     CMatrix Power(const int &n) const;
     double Det() const;
+    double Det_Diagonal() const;
     double Trace() const;
     CMatrix Cofactor() const;
     CMatrix Transpose() const;
     void TransposeSelf();
     CMatrix Inverse() const;
+    CMatrix Inverse_Diagonal() const;
     CMatrix Cholesky() const;
+    CMatrix Cholesky_Diagonal() const;
     CMatrix LowerTri() const;
     CMatrix UpperTri() const;
 

@@ -122,6 +122,7 @@ private:
     TFormula *formula;
     CMatrix M_weight;
     CMatrix M_penalty;
+    bool weight_diagonal;
     std::vector<DataPoint> data;
     std::vector<Parameter> parameters;
 };

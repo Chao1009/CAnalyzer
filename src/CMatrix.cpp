@@ -405,13 +405,6 @@ double CMatrix::Det() const
     if(!SquareCheck("Determinant"))
         return 0.;
 
-    if(IsDiagonal()) {
-        double deter = 1.;
-        for(size_t i = 0; i < dim_n; ++i)
-            deter *= At(i, i);
-        return deter;
-    }
-
     if(dim_n == 1) { // special case
         return At(0, 0);
     } else if(dim_n == 2) { // special case
@@ -435,6 +428,18 @@ double CMatrix::Det() const
         }
         return det;
     }
+}
+
+double CMatrix::Det_Diagonal() const
+{
+    if(!SquareCheck("Determinant"))
+        return 0.;
+
+    double det = 1.;
+    for(size_t i = 0; i < dim_n; ++i)
+        det *= At(i, i);
+
+    return det;
 }
 
 double CMatrix::Det(const size_t &k) const
@@ -514,40 +519,41 @@ void CMatrix::TransposeSelf()
 
 CMatrix CMatrix::Inverse() const
 {
-    if(IsDiagonal()) {
+    double det = Det();
 
-        CMatrix res(dim_n);
-
-        for(size_t i = 0; i < dim_n; ++i)
-        {
-            // no reverse
-            if(At(i, i) == 0.) {
-                std::cout << "CMatrix Warning: No inverse exist! "
-                          << i << " element is 0 for diagonal matrix."
-                          << std::endl;
-                return CMatrix();
-            } else {
-                res(i, i) = 1/At(i, i);
-            }
-        }
-
-        return res;
-
-    } else {
-
-        double det = Det();
-
-        if(det == 0.) {
-            std::cerr << "CMatrix Error: This matrix's determinant is 0, no inverse matrix exists."
-                      << std::endl;
-            return CMatrix(0);
-        }
-
-        CMatrix res = Cofactor();
-        res.TransposeSelf();
-
-        return res/det;
+    if(det == 0.) {
+        std::cerr << "CMatrix Error: This matrix's determinant is 0, no inverse matrix exists."
+                  << std::endl;
+        return CMatrix(0);
     }
+
+    CMatrix res = Cofactor();
+    res.TransposeSelf();
+
+    return res/det;
+}
+
+CMatrix CMatrix::Inverse_Diagonal() const
+{
+    if(!SquareCheck("Inverse"))
+        return CMatrix(0);
+
+    CMatrix res(dim_n);
+
+    for(size_t i = 0; i < dim_n; ++i)
+    {
+        // no reverse
+        if(At(i, i) == 0.) {
+            std::cout << "CMatrix Warning: No inverse exist! "
+                      << i << " element is 0 for diagonal matrix."
+                      << std::endl;
+            return CMatrix();
+        } else {
+            res(i, i) = 1/At(i, i);
+        }
+    }
+
+    return res;
 }
 
 CMatrix CMatrix::LowerTri() const
@@ -601,17 +607,6 @@ CMatrix CMatrix::Cholesky() const
     if(!SquareCheck("Cholesky Decomposition"))
         return CMatrix(0);
 
-    if(IsDiagonal()) {
-        CMatrix res(dim_n);
-
-        for(size_t i = 0; i < dim_n; ++i)
-        {
-            res(i, i) = sqrt(At(i, i));
-        }
-
-        return res;
-    }
-
     if(!IsSymmetric() || !IsPositiveDefinite()) {
         std::cerr << "CMatrix Error: Cholesky Decomposition is only valid for a "
                   << "symmetric positive definite matrix."
@@ -636,6 +631,21 @@ CMatrix CMatrix::Cholesky() const
                 res(i, j) = 1./res(j, j) * (At(i, j) - s);
         }
     }
+    return res;
+}
+
+CMatrix CMatrix::Cholesky_Diagonal() const
+{
+    if(!SquareCheck("Cholesky Decomposition"))
+        return CMatrix(0);
+
+    CMatrix res(dim_n);
+
+    for(size_t i = 0; i < dim_n; ++i)
+    {
+        res(i, i) = sqrt(At(i, i));
+    }
+
     return res;
 }
 

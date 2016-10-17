@@ -159,7 +159,7 @@ void CEstimator::GenerateCovMatrix()
             covariance_inv(i, i) = 1e4/data.at(i).val/data.at(i).val; // set 1% level
     }
 
-    M_weight = covariance_inv;
+    SetWeightMatrix(covariance_inv);
 }
 
 void CEstimator::SetParameter(const size_t &i, const double &p, const double &step)
@@ -187,6 +187,10 @@ void CEstimator::SetParameters(const std::vector<double> &p)
 void CEstimator::SetWeightMatrix(const CMatrix &m)
 {
     M_weight = m;
+    if(m.IsDiagonal())
+        weight_diagonal = true;
+    else
+        weight_diagonal = false;
 }
 
 void CEstimator::SetPenaltyMatrix(const CMatrix &m)
@@ -312,7 +316,14 @@ double CEstimator::Evaluate(const double &factor)
     for(size_t i = 0; i < data.size(); ++i)
         p(0, i) = data.at(i).val - GetFormulaVal(data.at(i).x);
 
-    double result = p*M_weight*transpose(p);
+    double result = 0;
+
+    if(weight_diagonal) {
+        for(size_t i = 0; i < data.size(); ++i)
+            result += p(0, i)*p(0, i)*M_weight(i, i); // faster method for diagonal matrix
+    } else {
+        result = p*M_weight*transpose(p);
+    }
 
     // penalty matrix exists, calculate penalty term
     if(M_penalty.DimN() == parameters.size() &&
@@ -353,7 +364,14 @@ CMatrix CEstimator::GetHessian()
                 J(j, i) = -gradient;
         }
     }
-    CMatrix J_w = M_weight.Cholesky()*J;
+
+    CMatrix J_w;
+
+    if(weight_diagonal)
+        J_w = M_weight.Cholesky_Diagonal()*J; // faster
+    else
+        J_w = M_weight.Cholesky()*J;
+
     return J_w.Transpose()*J_w;
 }
 
