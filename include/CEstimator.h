@@ -71,6 +71,7 @@ public:
                       const double &p,
                       const double &step = 0.);
     void SetParameters(const std::vector<double> &p);
+    void SetStepFactor(const double &fine, const double &coarse);
 
     // Maximum Likelihood:
     // weight matrix <- covariance matrix
@@ -88,8 +89,10 @@ public:
 
     // get members
     size_t GetNpar() const {return parameters.size();};
+    size_t GetNpoints() const {return data.size();};
     TFormula *GetFormula();
-    std::vector<Parameter> GetParameters() const {return parameters;};
+    const std::vector<DataPoint> &GetDataPoints() const {return data;};
+    const std::vector<Parameter> &GetParameters() const {return parameters;};
     Parameter GetParameter(const size_t &i) const
     {
         if(i >= parameters.size())
@@ -100,8 +103,8 @@ public:
 
     // fit related
     // fit, iteration limitation, step range
-    virtual void Fit(int c_iter = 50, int f_iter = 50, int range = 30, bool verbose = true);
-    virtual bool Optimize(int range = 30, int coarse = 1, bool verbose = true);
+    virtual void Fit(int c_iter = 100, int f_iter = 100, int range = 50, bool verbose = true);
+    virtual bool Optimize(int range, double factor, bool verbose);
     virtual double Evaluate(const double &factor = 0.);
     virtual void NextStep(const double &factor, bool verbose);
     virtual CMatrix GetHessian();
@@ -121,8 +124,11 @@ public:
 private:
     TFormula *formula;
     CMatrix M_weight;
-    CMatrix M_penalty;
     bool weight_diagonal;
+    CMatrix M_penalty;
+    bool penalty_diagonal;
+    double fine_step_size;
+    double coarse_step_size;
     std::vector<DataPoint> data;
     std::vector<Parameter> parameters;
 };

@@ -11,7 +11,7 @@
 using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
-: formula(nullptr)
+: formula(nullptr), fine_step_size(1.), coarse_step_size(100.)
 {
     if(!path.empty())
         LoadFormula(path);
@@ -196,6 +196,32 @@ void CEstimator::SetWeightMatrix(const CMatrix &m)
 void CEstimator::SetPenaltyMatrix(const CMatrix &m)
 {
     M_penalty = m;
+    if(m.IsDiagonal())
+        penalty_diagonal = true;
+    else
+        penalty_diagonal = false;
+}
+
+void CEstimator::SetStepFactor(const double &fine, const double &coarse)
+{
+    // set fine step
+    if(fine == 0.) { // cannot be 0
+        fine_step_size = 1.;
+    } else {
+        fine_step_size = fine;
+    }
+
+    // set coarse step
+    if(coarse == 0.) { // cannot be 0
+        coarse_step_size = 100.;
+    } else if (coarse < fine) {
+        std::cout << "CEstimator Warning: coarse step size cannot be smaller than "
+                  << "fine step size, automatically set to " << fine*10
+                  << std::endl;
+        coarse_step_size = fine*10.;
+    } else {
+        coarse_step_size = coarse;
+    }
 }
 
 // fit the function to data
@@ -213,7 +239,7 @@ void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
         }
 
         // cannot optimize anymore
-        if(!Optimize(range, 100, verbose))
+        if(!Optimize(range, coarse_step_size, verbose))
             break;
 
     }
@@ -229,7 +255,7 @@ void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
                       << std::endl;
         }
 
-        if(!Optimize(range, 1, verbose))
+        if(!Optimize(range, fine_step_size, verbose))
             break;
 
     }
@@ -246,7 +272,7 @@ void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
 
 
 // optimize all the parameters independently
-bool CEstimator::Optimize(int steps, int coarse, bool verbose)
+bool CEstimator::Optimize(int range, double factor, bool verbose)
 {
     bool optimized = false;
 
@@ -259,7 +285,7 @@ bool CEstimator::Optimize(int steps, int coarse, bool verbose)
     {
         UnlockPar(i);
 
-        int minimum = 0, step;
+        double minimum = 0., step;
         double eval = Evaluate();
         do
         {
@@ -273,9 +299,9 @@ bool CEstimator::Optimize(int steps, int coarse, bool verbose)
             // calculate steps
             CalcStep();
             // find the minimum within range
-            for(int j = 1; j <= steps; ++j)
+            for(int j = 1; j <= range; ++j)
             {
-                step = j*coarse;
+                step = j*factor;
 
                 // negative direction
                 double this_val_m = Evaluate(-step);
@@ -292,7 +318,7 @@ bool CEstimator::Optimize(int steps, int coarse, bool verbose)
                 }
             }
 
-        } while(minimum != 0);
+        } while(minimum != 0.);
 
         LockPar(i);
     }
@@ -313,11 +339,13 @@ double CEstimator::Evaluate(const double &factor)
     }
 
     CMatrix p(1, data.size());
+    // calculate the difference between model and data
     for(size_t i = 0; i < data.size(); ++i)
         p(0, i) = data.at(i).val - GetFormulaVal(data.at(i).x);
 
     double result = 0;
 
+    // calculate the diff term
     if(weight_diagonal) {
         for(size_t i = 0; i < data.size(); ++i)
             result += p(0, i)*p(0, i)*M_weight(i, i); // faster method for diagonal matrix
@@ -329,6 +357,7 @@ double CEstimator::Evaluate(const double &factor)
     if(M_penalty.DimN() == parameters.size() &&
        M_penalty.DimM() == parameters.size())
     {
+        // calculate the parameter changes
         CMatrix b(1, parameters.size());
         for(size_t i = 0; i < parameters.size(); ++i)
         {
@@ -338,7 +367,14 @@ double CEstimator::Evaluate(const double &factor)
             if(!parameters.at(i).lock)
                 b(0, i) -= parameters.at(i).step*factor;
         }
-        result += b*M_penalty*transpose(b);
+
+        // calculate penalty term
+        if(penalty_diagonal) {
+            for(size_t i = 0; i < parameters.size(); ++i)
+                result += b(0, i)*b(0, i)*M_penalty(i, i);
+        } else {
+            result += b*M_penalty*transpose(b);
+        }
     }
 
     return result;
