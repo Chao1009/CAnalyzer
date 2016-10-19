@@ -1,4 +1,5 @@
 #include "CMatrix.h"
+#include "CAnalyzer.h"
 #include <iostream>
 #include <iomanip>
 #include <cmath>
@@ -402,6 +403,11 @@ bool CMatrix::IsPositiveDefinite() const
 
 double CMatrix::Det() const
 {
+    return Det_Leibniz();
+}
+
+double CMatrix::Det_Laplace() const
+{
     if(!SquareCheck("Determinant"))
         return 0.;
 
@@ -430,11 +436,30 @@ double CMatrix::Det() const
     }
 }
 
-double CMatrix::Det_Diagonal() const
+double CMatrix::Det_Leibniz() const
 {
     if(!SquareCheck("Determinant"))
         return 0.;
 
+    std::vector<size_t> indices;
+    for(size_t i = 0; i < dim_n; ++i)
+        indices.push_back(i);
+
+    double determinant = 0;
+    int parity = 1;
+    do
+    {
+        double element = 1.;
+        for(size_t i = 0; i < dim_n; ++i)
+            element *= At(i, indices.at(i));
+        determinant += parity*element;
+    } while(cana::permutate(indices.begin(), indices.end(), parity));
+
+    return determinant;
+}
+
+double CMatrix::Det_Diagonal() const
+{
     double det = 1.;
     for(size_t i = 0; i < dim_n; ++i)
         det *= At(i, i);
@@ -535,9 +560,6 @@ CMatrix CMatrix::Inverse() const
 
 CMatrix CMatrix::Inverse_Diagonal() const
 {
-    if(!SquareCheck("Inverse"))
-        return CMatrix(0);
-
     CMatrix res(dim_n);
 
     for(size_t i = 0; i < dim_n; ++i)
@@ -636,9 +658,6 @@ CMatrix CMatrix::Cholesky() const
 
 CMatrix CMatrix::Cholesky_Diagonal() const
 {
-    if(!SquareCheck("Cholesky Decomposition"))
-        return CMatrix(0);
-
     CMatrix res(dim_n);
 
     for(size_t i = 0; i < dim_n; ++i)

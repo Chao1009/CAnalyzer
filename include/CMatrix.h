@@ -42,6 +42,8 @@ public:
     CMatrix Identity() const;
     CMatrix Power(const int &n) const;
     double Det() const;
+    double Det_Leibniz() const;
+    double Det_Laplace() const;
     double Det_Diagonal() const;
     double Trace() const;
     CMatrix Cofactor() const;

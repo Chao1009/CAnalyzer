@@ -302,7 +302,6 @@ bool CEstimator::Optimize(int range, double factor, bool verbose)
             for(int j = 1; j <= range; ++j)
             {
                 step = j*factor;
-
                 // negative direction
                 double this_val_m = Evaluate(-step);
                 if(this_val_m < eval) {

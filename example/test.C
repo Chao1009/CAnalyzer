@@ -73,16 +73,20 @@ void fit_test()
 
 void matrix_test()
 {
-    CMatrix m(4);
-    m = {2, 0, 0, 1,
-         0, 2, 1, 0,
-         0, 1, 2, 0,
-         1, 0, 0, 2};
+    CMatrix m(6);
+    m = {2, 8, -1, 1, 2, 2,
+         4, 2, 1, 6, 4, 5,
+         9, 1, 2, 7, 9, 7,
+         1, 2, 5, 2, 8, 6,
+         1, 2, 3, 4, 5, 6,
+         6, 5, 4, 3, 2, 1};
     CMatrix l = m;
 
-    cout << m << endl;
-    cout << l << endl;
+//    cout << m << endl;
+//    cout << l << endl;
     cout << m.Det() << endl;
+    cout << m.Det_Permutation() << endl;
+/*
     cout << m.UpperLeft(1) << endl;
     cout << m.Det(1) << endl;
     cout << m.UpperLeft(2) << endl;
@@ -101,5 +105,6 @@ void matrix_test()
     cout << power(m, 10) << endl;
     cout << m*m*m << endl;
     cout << transpose(m) << endl;
+*/
 }
 
