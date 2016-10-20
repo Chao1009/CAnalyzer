@@ -11,7 +11,7 @@
 using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
-: formula(nullptr), fine_step_size(1.), coarse_step_size(100.)
+: formula(nullptr), fine_step_size(0.01), coarse_step_size(1.)
 {
     if(!path.empty())
         LoadFormula(path);
@@ -206,14 +206,14 @@ void CEstimator::SetStepFactor(const double &fine, const double &coarse)
 {
     // set fine step
     if(fine == 0.) { // cannot be 0
-        fine_step_size = 1.;
+        fine_step_size = 0.01;
     } else {
         fine_step_size = fine;
     }
 
     // set coarse step
     if(coarse == 0.) { // cannot be 0
-        coarse_step_size = 100.;
+        coarse_step_size = 1.;
     } else if (coarse < fine) {
         std::cout << "CEstimator Warning: coarse step size cannot be smaller than "
                   << "fine step size, automatically set to " << fine*10
@@ -412,6 +412,7 @@ CMatrix CEstimator::GetHessian()
 
 void CEstimator::CalcStep()
 {
+    /*
     CMatrix rho(parameters.size(), 1);
     for(size_t i = 0; i < rho.DimN(); ++i)
     {
@@ -419,9 +420,11 @@ void CEstimator::CalcStep()
     }
 
     CMatrix step = GetHessian()*rho;
+    */
 
-    for(size_t i = 0; i < step.DimN(); ++i) {
-        parameters[i].step = 1./step(i, 0);
+    for(size_t i = 0; i < parameters.size(); ++i)
+    {
+        parameters[i].step = parameters[i].base_step;
     }
 }
 

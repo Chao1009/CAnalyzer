@@ -40,7 +40,7 @@ void fit_test()
     estimator.Fit();
 
     // save the optimized parameters
-    estimator.SaveFormula("fit_par_1147_new.dat");
+    estimator.SaveFormula("fit_par_1147.dat");
 
     // fill the function value after fit
     for(size_t i = 0; i < cxsn.size(); ++i)
@@ -84,8 +84,8 @@ void matrix_test()
 
 //    cout << m << endl;
 //    cout << l << endl;
-    cout << m.Det() << endl;
-    cout << m.Det_Permutation() << endl;
+    cout << m.Det_Leibniz() << endl;
+    cout << m.Det_Laplace() << endl;
 /*
     cout << m.UpperLeft(1) << endl;
     cout << m.Det(1) << endl;
