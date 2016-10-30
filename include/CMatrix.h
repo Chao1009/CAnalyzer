@@ -104,9 +104,6 @@ public:
         return At(0, 0);
     }
 
-    double **_GetPtr() {return elements;};
-    void _NullPtr(){elements = nullptr;};
-
 private:
     void initialize(const bool &zero = false);
     void release();

@@ -61,8 +61,8 @@ CMatrix::CMatrix(const CMatrix &rhs)
 CMatrix::CMatrix(CMatrix && rhs)
 : dim_n(rhs.DimN()), dim_m(rhs.DimM())
 {
-    elements = rhs._GetPtr();
-    rhs._NullPtr();
+    elements = rhs.elements;
+    rhs.elements = nullptr;
 }
 
 CMatrix& CMatrix::operator= (const CMatrix &rhs)
@@ -90,8 +90,8 @@ CMatrix& CMatrix::operator= (CMatrix &&rhs)
     dim_n = rhs.DimN();
     dim_m = rhs.DimM();
 
-    elements = rhs._GetPtr();
-    rhs._NullPtr();
+    elements = rhs.elements;
+    rhs.elements = nullptr;
     return *this;
 }
 

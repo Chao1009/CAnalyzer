@@ -260,11 +260,9 @@ void CEstimator::Fit(int c_iter, int f_iter, int range, bool verbose)
 
     }
 
-    if(verbose) {
-        std::cout << "Fit is done, final chi square is "
-                  << GetReducedChiSquare()
-                  << std::endl;
-    }
+    std::cout << "Fit is done, final chi square is "
+              << GetReducedChiSquare()
+              << std::endl;
 
     // update the parameters to formula
     UpdatePars();
