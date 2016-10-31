@@ -4,6 +4,7 @@
 #include "ConfigParser.h"
 #include "CMatrix.h"
 #include "CEstimator.h"
+#include "CRadCorr.h"
 #include <vector>
 #include <string>
 #include <iterator>
