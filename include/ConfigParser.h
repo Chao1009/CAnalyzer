@@ -9,6 +9,89 @@
 #include <queue>
 #include <typeinfo>
 
+// config value class
+class ConfigValue;
+
+// config parser class
+class ConfigParser
+{
+public:
+    ConfigParser(const std::string &s = " ,\t",  // splitters
+                 const std::string &w = " \t",  // white_space
+                 const std::vector<std::string> &c = {"#", "//"}); // comment_mark
+    virtual ~ConfigParser();
+    void SetSplitters(const std::string &s) {splitters = s;};
+    void SetWhiteSpace(const std::string &w) {white_space = w;};
+    void SetCommentMarks(const std::vector<std::string> &c) {comment_marks = c;};
+    void AddCommentMark(const std::string &c);
+    void RemoveCommentMark(const std::string &c);
+    void EraseCommentMarks();
+
+    bool OpenFile(const std::string &path);
+    void CloseFile();
+
+    void OpenBuffer(char *);
+    void ClearBuffer();
+
+    bool ParseLine();
+    void ParseLine(const std::string &line);
+
+    int NbofElements() const {return elements.size();};
+    int LineNumber() const {return line_number;};
+    const std::string &CurrentLine() const {return current_line;};
+    std::string TakeLine();
+    ConfigValue TakeFirst();
+    std::vector<ConfigValue> TakeAll();
+
+    const std::string &GetSplitters() const {return splitters;};
+    const std::string &GetWhiteSpace() const {return white_space;};
+    const std::vector<std::string> &GetCommentMarks() const {return comment_marks;};
+
+private:
+    std::string splitters;
+    std::string white_space;
+    std::vector<std::string> comment_marks;
+    std::queue<std::string> lines;
+    std::string current_line;
+    int line_number;
+    std::queue<std::string> elements;
+    std::ifstream infile;
+
+private:
+    std::string comment_out(const std::string &str, size_t index = 0);
+
+public:
+    static std::string comment_out(const std::string &str, const std::string &c);
+    static std::string trim(const std::string &str, const std::string &w);
+    static std::queue<std::string> split(const std::string &str, const std::string &s);
+    static std::string str_remove(const std::string &str, const std::string &ignore);
+    static std::string str_replace(const std::string &str, const std::string &ignore, const char &rc = ' ');
+    static std::string str_lower(const std::string &str);
+    static std::string str_upper(const std::string &str);
+    static bool strcmp_case_insensitive(const std::string &str1, const std::string &str2);
+    static int find_integer(const std::string &str, const size_t &pos = 0);
+    static std::vector<int> find_integers(const std::string &str);
+    static void find_integer_helper(const std::string &str, std::vector<int> &result);
+};
+
+ConfigParser &operator >> (ConfigParser &c, bool &v);
+ConfigParser &operator >> (ConfigParser &c, std::string &v);
+ConfigParser &operator >> (ConfigParser &c, char &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned char &v);
+ConfigParser &operator >> (ConfigParser &c, short &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned short &v);
+ConfigParser &operator >> (ConfigParser &c, int &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned int &v);
+ConfigParser &operator >> (ConfigParser &c, long &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned long &v);
+ConfigParser &operator >> (ConfigParser &c, long long &v);
+ConfigParser &operator >> (ConfigParser &c, unsigned long long &v);
+ConfigParser &operator >> (ConfigParser &c, float &v);
+ConfigParser &operator >> (ConfigParser &c, double &v);
+ConfigParser &operator >> (ConfigParser &c, long double &v);
+ConfigParser &operator >> (ConfigParser &c, const char *&v);
+ConfigParser &operator >> (ConfigParser &c, ConfigValue &v);
+
 // demangle type name
 #ifdef __GNUG__
 #include <cstdlib>
@@ -36,7 +119,10 @@ static std::string demangle(const char* name)
 }
 #endif
 
-// config value class
+// this helps template specialization in class
+template <typename T>
+struct __cv_identifier { typedef T type; };
+
 class ConfigValue
 {
 public:
@@ -45,6 +131,7 @@ public:
     ConfigValue() {};
 
     ConfigValue(const std::string &value);
+    ConfigValue(const bool &value);
     ConfigValue(const int &value);
     ConfigValue(const long &value);
     ConfigValue(const long long &value);
@@ -57,37 +144,28 @@ public:
 
     template<typename T>
     T Convert()
+    const
     {
-        std::stringstream iss(_value);
-        T _cvalue;
-
-        if(!(iss>>_cvalue)) {
-            std::cerr << "Config Value Warning: Undefined value returned, failed to convert "
-                      <<  _value
-                      << " to "
-                      << demangle(typeid(T).name())
-                      << std::endl;
-        }
-
-        return _cvalue;
+        return convert( __cv_identifier<T>());
     };
 
-    char Char();
-    unsigned char UChar();
-    short Short();
-    unsigned short UShort();
-    int Int();
-    unsigned int UInt();
-    long Long();
-    long long LongLong();
-    unsigned long ULong();
-    unsigned long long ULongLong();
-    float Float();
-    double Double();
-    long double LongDouble();
-    const char *c_str();
-    std::string String() {return _value;};
-    bool IsEmpty() {return _value.empty();};
+    bool Bool() const;
+    char Char() const;
+    unsigned char UChar() const;
+    short Short() const;
+    unsigned short UShort() const;
+    int Int() const;
+    unsigned int UInt() const;
+    long Long() const;
+    long long LongLong() const;
+    unsigned long ULong() const;
+    unsigned long long ULongLong() const;
+    float Float() const;
+    double Double() const;
+    long double LongDouble() const;
+    const char *c_str() const;
+    std::string String() const {return _value;};
+    bool IsEmpty() const {return _value.empty();};
 
     operator std::string() const
     {
@@ -98,71 +176,34 @@ public:
     {
         return _value == rhs;
     }
+
+private:
+    template<typename T>
+    T convert(__cv_identifier<T> &&)
+    const
+    {
+        std::stringstream iss(_value);
+        T _cvalue;
+
+        if(!(iss >> _cvalue)) {
+            std::cerr << "Config Value Warning: Undefined value returned, failed to convert "
+                      <<  _value
+                      << " to "
+                      << demangle(typeid(T).name())
+                      << std::endl;
+        }
+
+        return _cvalue;
+    }
+
+    bool convert(__cv_identifier<bool> &&)
+    const
+    {
+        return (*this).Bool();
+    }
 };
 
 // show string content of the config value to ostream
-std::ostream &operator << (std::ostream &os, ConfigValue &b);
-
-// config parser class
-class ConfigParser
-{
-public:
-    ConfigParser(const std::string &s = " ,\t",  // splitters
-                 const std::string &w = " \t",  // white_space
-                 const std::vector<std::string> &c = {"#", "//"}); // comment_mark
-    virtual ~ConfigParser();
-    void SetSplitters(const std::string &s) {splitters = s;};
-    void SetWhiteSpace(const std::string &w) {white_space = w;};
-    void SetCommentMarks(const std::vector<std::string> &c) {comment_marks = c;};
-    void AddCommentMark(const std::string &c);
-    void RemoveCommentMark(const std::string &c);
-    void EraseCommentMarks();
-    bool OpenFile(const std::string &path);
-    void CloseFile();
-    void OpenBuffer(char *);
-    void ClearBuffer();
-    bool ParseLine();
-    void ParseLine(const std::string &line);
-    size_t NbofElements() {return elements.size();};
-    std::string GetLine();
-    ConfigValue TakeFirst();
-    std::vector<ConfigValue> TakeAll();
-
-private:
-    std::string splitters;
-    std::string white_space;
-    std::vector<std::string> comment_marks;
-    std::queue<std::string> lines;
-    std::queue<std::string> elements;
-    std::ifstream infile;
-
-private:
-    std::string comment_out(const std::string &str, size_t index = 0);
-
-public:
-    static std::string comment_out(const std::string &str, const std::string &c);
-    static std::string trim(const std::string &str, const std::string &w);
-    static std::queue<std::string> split(const std::string &str, const std::string &s);
-    static int find_integer(const std::string &str, const size_t &pos = 0);
-    static std::vector<int> find_integers(const std::string &str);
-    static void find_integer_helper(const std::string &str, std::vector<int> &result);
-};
-
-ConfigParser &operator >> (ConfigParser &c, std::string &v);
-ConfigParser &operator >> (ConfigParser &c, char &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned char &v);
-ConfigParser &operator >> (ConfigParser &c, short &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned short &v);
-ConfigParser &operator >> (ConfigParser &c, int &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned int &v);
-ConfigParser &operator >> (ConfigParser &c, long &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned long &v);
-ConfigParser &operator >> (ConfigParser &c, long long &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned long long &v);
-ConfigParser &operator >> (ConfigParser &c, float &v);
-ConfigParser &operator >> (ConfigParser &c, double &v);
-ConfigParser &operator >> (ConfigParser &c, long double &v);
-ConfigParser &operator >> (ConfigParser &c, const char *&v);
-ConfigParser &operator >> (ConfigParser &c, ConfigValue &v);
+std::ostream &operator << (std::ostream &os, const ConfigValue &b);
 
 #endif

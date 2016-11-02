@@ -108,7 +108,7 @@ void matrix_test()
 */
 }
 
-double quad(double x)
+double quad(const double &x)
 {
     return x*x;
 }
@@ -118,7 +118,7 @@ class MyQuad
     double c;
 public:
     MyQuad(double cc = 1) : c(cc) {};
-    double eval(double x) {return c*x*x;};
+    double eval(const double &x) {return c*x*x;};
 };
 
 void function_test()
@@ -139,4 +139,34 @@ void function_test()
 
     cout << CRadCorr::simpson(0, 10, &quad, 0.01, 1000) << endl;
     cout << CRadCorr::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
+}
+
+void radcor_test()
+{
+    CRadCorr rad_cor;
+    rad_cor.Configure("rad_cor.conf");
+
+    cout << "Internal RC is ";
+    if(rad_cor.GetConfig<bool>("Internal RC"))
+        cout << "ON" << endl;
+    else
+        cout << "OFF" << endl;
+
+    cout << "External RC is ";
+    if(rad_cor.GetConfig<bool>("External RC"))
+        cout << "ON" << endl;
+    else
+        cout << "OFF" << endl;
+
+    cout << "User Defined XI is ";
+    if(rad_cor.GetConfig<bool>("User Defined XI"))
+        cout << "ON" << endl;
+    else
+        cout << "OFF" << endl;
+
+    vector<string> file_list = {"exp_9deg.dat", "model_9deg.dat"};
+    rad_cor.ReadExpData(file_list);
+
+    rad_cor.RadiativeCorrection();
+    rad_cor.SaveResult("radcor_out.dat");
 }

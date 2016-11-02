@@ -45,6 +45,7 @@ OBJECTS_DIR   = obj
 SOURCES_DIR   = src
 
 CXX_OBJECTS   = $(OBJECTS_DIR)/ConfigParser.o \
+				$(OBJECTS_DIR)/ConfigObject.o \
                 $(OBJECTS_DIR)/CAnalyzer.o \
                 $(OBJECTS_DIR)/CMatrix.o \
                 $(OBJECTS_DIR)/CEstimator.o \
