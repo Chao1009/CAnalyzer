@@ -235,30 +235,31 @@ void CRadCorr::SaveResult(const std::string &path)
 //========================ORIGINAL AUTHORS======================================
 // RADCOR FORTRAN CODE                                                          
 // ***by Randy Roy Whitney, Phys. Rev. C 9, 2230 - 2235 (1974)                  
-//                                                                              
-// ***modified by K. Slifer, Temple University, 01/29/03                        
+//------------------------------------------------------------------------------
+// MODIFIED RADCOR - 01/29/2003                                                 
+// ***by K. Slifer, Temple University, 01/29/03                                 
 // downloadable at  http://www.jlab.org/~slifer/codes.html                      
-//                                                                              
-// ***modified by Jaideep Singh, 04/01/07                                       
-//                                                                              
+//------------------------------------------------------------------------------
+// MODIFIED RADCOR - 04/01/2007                                                 
+// ***by Jaideep Singh                                                          
 //========================REFERENCES============================================
 // MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
 //           Scattering                                                         
 //           by: L.W. Mo and Y.S. Tsai                                          
 //           Reviews of Modern Physics, 41, p205-235, Jan 1969                  
 //           http://link.aps.org/abstract/RMP/v41/p205                          
-//==============================================================================
+//------------------------------------------------------------------------------
 // TSAI71    Radiative Corrections to Electron Scattering                       
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
-//==============================================================================
+//------------------------------------------------------------------------------
 // STEIN     Electron scattering at 4° with energies of 4.5-20 GeV              
 //           by: S. Stein, W. B. Atwood, E. D. Bloom, R. L. A. Cottrell,        
 //               H. DeStaebler, C. L. Jordan§, H. G. Piel, C. Y. Prescott,      
 //               R. Siemann, and R. E. Taylor                                   
 //           Phys. Rev. D 12, 1884 - 1919 (October 1975)                        
 //           http://link.aps.org/abstract/PRD/v12/p1884                         
-//==============================================================================
+//------------------------------------------------------------------------------
 // Miller72  Inelastic Electron-Proton Scattering at Large Momentum Transfers   
 //           and the Inelastic Structure Functions of the Proton                
 //           by: G. Miller, E. D. Bloom, G. Buschhorn,  D. H. Coward,           
@@ -353,7 +354,7 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
 //           by: L.W. Mo and Y.S. Tsai                                          
 //           Reviews of Modern Physics, 41, p205-235, Jan 1969                  
 //           http://link.aps.org/abstract/RMP/v41/p205                          
-//==============================================================================
+//------------------------------------------------------------------------------
 // TSAI71    Radiative Corrections to Electron Scattering                       
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
