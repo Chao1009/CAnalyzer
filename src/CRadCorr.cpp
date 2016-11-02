@@ -33,7 +33,7 @@ void CRadCorr::Configure(const std::string &path)
     internal_RC = getConfig<bool>("Internal RC", true);
     external_RC = getConfig<bool>("External RC", true);
     user_defined_XI = getConfig<bool>("User Defined XI", false);
-    n_iteration = getConfig<int>("Number of Iterations", 10);
+    peak_approx = getConfig<bool>("Peaking Approximation", true);
     n_simpson_bins = getConfig<int>("Min Number of Simpson Bins", 10000);
     simpson_bin_size = getConfig<double>("Simpson Step Size", 0.1);
     delta = getConfig<double>("IR DIV Delta", 10);
@@ -142,12 +142,6 @@ bool CRadCorr::SanityCheck()
         return false;
     }
 
-    if(n_iteration < 1) {
-        std::cout << "Need to do at least 1 iteration"
-                  << std::endl;
-        return false;
-    }
-
     if(simpson_bin_size < 0) {
         std::cout << "Simpson integration step size must be > 0"
                   << std::endl;
@@ -163,12 +157,12 @@ bool CRadCorr::SanityCheck()
     return true;
 }
 
-void CRadCorr::RadiativeCorrection()
+void CRadCorr::RadiativeCorrection(int iters)
 {
     if(!SanityCheck())
         return;
 
-    for(int i = 1; i <= n_iteration; ++i)
+    for(int i = 1; i <= iters; ++i)
     {
         for(auto &set : data_sets)
         {
@@ -176,12 +170,28 @@ void CRadCorr::RadiativeCorrection()
             if(set.non_rad)
                 continue;
 
-            std::cout << "Iteration: " << i
+            std::cout << "RC iteration: " << i
                       << ", spectrum energy: " << set.energy
                       << std::endl;
 
             radcor(set);
         }
+    }
+}
+
+void CRadCorr::Radiate()
+{
+    if(!SanityCheck())
+        return;
+
+    for(auto &set : data_sets)
+    {
+        if(set.non_rad)
+            continue;
+
+        std::cout << "Radiate, spectrum energy: " << set.energy << std::endl;
+
+        radcor(set, true);
     }
 }
 
@@ -210,7 +220,7 @@ void CRadCorr::SaveResult(const std::string &path)
             double rc_err = set.error*std::abs(xsf - xsi);
             syst_err = sqrt(syst_err*syst_err + rc_err*rc_err);
             output << std::setw(8) << set.energy
-                   << std::setw(15) << point.nu
+                   << std::setw(8) << point.nu
                    << std::setw(15) << xsi
                    << std::setw(15) << xsf
                    << std::setw(15) << stat_err
@@ -220,9 +230,44 @@ void CRadCorr::SaveResult(const std::string &path)
     }
 }
 
-
-// do radiative correction for one spectrum
-void CRadCorr::radcor(DataSet &set)
+//==============================================================================
+// radiative correction for one spectrum                                        
+//========================ORIGINAL AUTHORS======================================
+// RADCOR FORTRAN CODE                                                          
+// ***by Randy Roy Whitney, Phys. Rev. C 9, 2230 - 2235 (1974)                  
+//                                                                              
+// ***modified by K. Slifer, Temple University, 01/29/03                        
+// downloadable at  http://www.jlab.org/~slifer/codes.html                      
+//                                                                              
+// ***modified by Jaideep Singh, 04/01/07                                       
+//                                                                              
+//========================REFERENCES============================================
+// MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
+//           Scattering                                                         
+//           by: L.W. Mo and Y.S. Tsai                                          
+//           Reviews of Modern Physics, 41, p205-235, Jan 1969                  
+//           http://link.aps.org/abstract/RMP/v41/p205                          
+//==============================================================================
+// TSAI71    Radiative Corrections to Electron Scattering                       
+//           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
+//           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
+//==============================================================================
+// STEIN     Electron scattering at 4° with energies of 4.5-20 GeV              
+//           by: S. Stein, W. B. Atwood, E. D. Bloom, R. L. A. Cottrell,        
+//               H. DeStaebler, C. L. Jordan§, H. G. Piel, C. Y. Prescott,      
+//               R. Siemann, and R. E. Taylor                                   
+//           Phys. Rev. D 12, 1884 - 1919 (October 1975)                        
+//           http://link.aps.org/abstract/PRD/v12/p1884                         
+//==============================================================================
+// Miller72  Inelastic Electron-Proton Scattering at Large Momentum Transfers   
+//           and the Inelastic Structure Functions of the Proton                
+//           by: G. Miller, E. D. Bloom, G. Buschhorn,  D. H. Coward,           
+//               H. DeStaebler, J. Drees, C. L. Jordan, L. W. Mo, R. E. Taylor, 
+//               J. I. Friedman, G. C. Hartmanna, H. W. Kendall, and R. Verdier 
+//           Phys. Rev. D 5, 528 - 544 (Feb. 1972)                              
+//           http://link.aps.org/abstract/PRD/v5/p528                           
+//==============================================================================
+void CRadCorr::radcor(DataSet &set, bool radiate)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
@@ -249,12 +294,10 @@ void CRadCorr::radcor(DataSet &set)
         double ETAP = (1 - 2*Ep*sin2/target_M);
         R = set.eta/ETAP;
 
+        // calculate low energy corner SIGLOW
         double DHO, BTR;
         internalRC(Es, Ep, DHO, BTR);
-
         double FBAR = exp(DHO)/GAMT;
-
-        // calculate low energy corner SIGLOW
         double SIGLOW = FBAR * std::pow(R*delta/Es, BTB+BTR)
                              * std::pow(delta/Ep, BTA+BTR)
                              * (1 - (XIB+XIA)/delta/(1-BTB-BTA-2*BTR));
@@ -287,16 +330,37 @@ void CRadCorr::radcor(DataSet &set)
             SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, simpson_bin_size, n_simpson_bins);
         }
 
-        // calculate the radiated cross section
-        /*
-        double WEXC = (Es - Ep)/Es;
-        double ATT = terp(set, WEXC);
-        double SIGRAD = SIGLOW*set.weight_mott*ATT + SIGBEF + SIGAFT;
-        */
-
-        // correct the spectrum
-        point.born = (point.rad - (SIGBEF+SIGAFT)/set.weight_mott)/SIGLOW;
+        if(radiate) {
+            // radiate, update radiated cross section
+            point.rad = SIGLOW*set.weight_mott*point.born + SIGBEF + SIGAFT;
+        } else {
+            // radiative correction, update the born cross section
+            point.born = (point.rad - (SIGBEF+SIGAFT)/set.weight_mott)/SIGLOW;
+        }
     }
+}
+
+
+//==============================================================================
+// radiative correction for one spectrum without peaking approximation          
+//========================ORIGINAL AUTHORS======================================
+// XYRAD2D FORTRAN CODE                                                         
+// ***by. Xuefei Yan, Duke University,  10/11/2016                              
+//                                                                              
+//========================REFERENCES============================================
+// MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
+//           Scattering                                                         
+//           by: L.W. Mo and Y.S. Tsai                                          
+//           Reviews of Modern Physics, 41, p205-235, Jan 1969                  
+//           http://link.aps.org/abstract/RMP/v41/p205                          
+//==============================================================================
+// TSAI71    Radiative Corrections to Electron Scattering                       
+//           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
+//           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
+//==============================================================================
+void CRadCorr::xyrad2d(DataSet &set, bool radiate)
+{
+
 }
 
 inline double __rc_phi(double x)

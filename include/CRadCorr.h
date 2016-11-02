@@ -68,11 +68,13 @@ public:
     void ReadExpData(const std::string &path);
     void ReadExpData(const std::vector<std::string> &filelist);
     bool SanityCheck();
-    void RadiativeCorrection();
+    void RadiativeCorrection(int iters = 10);
+    void Radiate();
     void SaveResult(const std::string &path);
 
 private:
-    void radcor(DataSet &set);
+    void radcor(DataSet &set, bool radiate = false);
+    void xyrad2d(DataSet &set, bool radiate = false);
     void internalRC(const double &Es, const double &Ep, double &DHO, double &BTR);
     double fes(const double &Es);
     double fep(const double &Ep);
@@ -82,8 +84,8 @@ private:
     void readData(ConfigParser &p);
 
     std::vector<DataSet> data_sets;
-    bool internal_RC, external_RC, user_defined_XI;
-    int n_iteration, n_simpson_bins;
+    bool internal_RC, external_RC, user_defined_XI, peak_approx;
+    int n_simpson_bins;
     double simpson_bin_size;
     double target_Z, target_A, target_M;
     double angle, sin2, cos2;
