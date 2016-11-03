@@ -527,17 +527,22 @@ const
 {
     if((_value == "1") ||
        (ConfigParser::strcmp_case_insensitive(_value, "T")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "True")))
+       (ConfigParser::strcmp_case_insensitive(_value, "True")) ||
+       (ConfigParser::strcmp_case_insensitive(_value, "Y")) ||
+       (ConfigParser::strcmp_case_insensitive(_value, "Yes")))
         return true;
 
     if((_value == "0") ||
        (ConfigParser::strcmp_case_insensitive(_value, "F")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "False")))
+       (ConfigParser::strcmp_case_insensitive(_value, "False")) ||
+       (ConfigParser::strcmp_case_insensitive(_value, "N")) ||
+       (ConfigParser::strcmp_case_insensitive(_value, "No")))
         return false;
 
     cout << "Config Value: Failed to convert "
          << _value << " to bool type. Return false."
          << endl;
+
     return false;
 }
 

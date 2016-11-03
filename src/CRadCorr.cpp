@@ -34,8 +34,8 @@ void CRadCorr::Configure(const std::string &path)
     external_RC = getConfig<bool>("External RC", true);
     user_defined_XI = getConfig<bool>("User Defined XI", false);
     peak_approx = getConfig<bool>("Peaking Approximation", true);
-    n_simpson_bins = getConfig<int>("Min Number of Simpson Bins", 10000);
-    simpson_bin_size = getConfig<double>("Simpson Step Size", 0.1);
+    n_sim = getConfig<int>("Min Number of Simpson Bins", 10000);
+    sim_step = getConfig<double>("Simpson Step Size", 0.1);
     delta = getConfig<double>("IR DIV Delta", 10);
     target_Z = getConfig<double>("Target Z", 2);
     target_A = getConfig<double>("Target A", 3.0149322473);
@@ -142,7 +142,7 @@ bool CRadCorr::SanityCheck()
         return false;
     }
 
-    if(simpson_bin_size < 0) {
+    if(sim_step < 0) {
         std::cout << "Simpson integration step size must be > 0"
                   << std::endl;
         return false;
@@ -314,7 +314,7 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
                       << ", ESMAX = " << Esmax
                       << std::endl;
         } else {
-            SIGBEF = simpson(Esmin, Esmax, &CRadCorr::fes, this, simpson_bin_size, n_simpson_bins);
+            SIGBEF = simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
         }
 
         // calculate integral along dEp for fixed Es SIGAFT
@@ -328,7 +328,7 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
                       << ", EPMAX = " << Esmax
                       << std::endl;
         } else {
-            SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, simpson_bin_size, n_simpson_bins);
+            SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
         }
 
         if(radiate) {
@@ -364,9 +364,25 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
 
 }
 
+/*
+double CRadCorr::int_es(const double &Esx)
+{
+    double Ep_max = Esx/(1. + 2.*Esx*sin2/target_M);
+    double Ep_min = delta*R; // delta2
+    if(Ep_max < Ep_min)
+        return 0.;
+
+    double DHO, BTR;
+    internalRC(Esx, Ep, DHO, BTR);
+    double FBAR = exp(DHO)/GAMT;
+
+    return Iprob(Es, Esx, BTR)*simpson(Ep_min, Ep_max, &CRadCorr::int_ep, this, sim_step, n_sim);
+}
+*/
+
 inline double __rc_phi(double x)
 {
-    return 1 - x + 3./4.*std::pow(x, 2.);
+    return 1. - x + 3./4.*std::pow(x, 2.);
 }
 
 // for integral along dEs
@@ -378,9 +394,9 @@ double CRadCorr::fes(const double &Esx)
     double FBAR = exp(DHO)/GAMT;
 
     // calculate effect of multiple soft photon emission
-    double FSOFT = std::pow(1 - Esx/Es, BTB+BTR)*std::pow((Es-Esx)/Ep/R, BTA+BTR);
+    double FSOFT = std::pow(1. - Esx/Es, BTB+BTR)*std::pow((Es-Esx)/Ep/R, BTA+BTR);
 
-    double FES = (BTB + BTR)/(Es - Esx)*__rc_phi(1 - Esx/Es);
+    double FES = (BTB + BTR)/(Es - Esx)*__rc_phi(1. - Esx/Es);
     FES += XIB/(Es - Esx)/(Es - Esx);
     FES *= FSOFT*FBAR*ftcs(Esx, Ep);
     return FES;
@@ -395,9 +411,9 @@ double CRadCorr::fep(const double &Epx)
     double FBAR = exp(DHO)/GAMT;
 
     // calculate effect of multiple soft photon emission
-    double FSOFT = std::pow(1 - Ep/Epx, BTA+BTR)*std::pow((Epx-Ep)*R/Es, BTB+BTR);
+    double FSOFT = std::pow(1. - Ep/Epx, BTA+BTR)*std::pow((Epx-Ep)*R/Es, BTB+BTR);
 
-    double FEP = (BTA + BTR)/(Epx - Ep)*__rc_phi(1 - Ep/Epx);
+    double FEP = (BTA + BTR)/(Epx - Ep)*__rc_phi(1. - Ep/Epx);
     FEP += XIA/(Epx - Ep)/(Epx - Ep);
     FEP *= FSOFT*FBAR*ftcs(Es, Epx);
     return FEP;
@@ -406,7 +422,7 @@ double CRadCorr::fep(const double &Epx)
 // interpolates or extrapolates
 double CRadCorr::ftcs(const double &E0, const double &Eb)
 {
-    if(Eb >= E0/(1+2*E0*sin2/target_M))
+    if(Eb >= E0/(1. + 2.*E0*sin2/target_M))
         return 0;
 
     double WEXC = 1 - Eb/E0;

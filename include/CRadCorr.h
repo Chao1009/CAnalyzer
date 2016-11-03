@@ -85,8 +85,8 @@ private:
 
     std::vector<DataSet> data_sets;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
-    int n_simpson_bins;
-    double simpson_bin_size;
+    int n_sim;
+    double sim_step;
     double target_Z, target_A, target_M;
     double angle, sin2, cos2;
 
