@@ -292,44 +292,50 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
 
         // kinematics
         Ep = point.Ep;
-        double ETAP = (1. - 2.*Ep*sin2/target_M);
-        R = set.eta/ETAP;
+
+        double Esmin = __Es_min(Ep);
+        double Epmax = __Ep_max(Es);
+
+        R = Esmin/Epmax * Es/Ep;
+
+        double Esmax = Es - R*delta;
+        double Epmin = Ep + delta;
+
+        // components of SIGRAD
+        double SIGLOW, SIGBEF, SIGAFT;
 
         // calculate low energy corner SIGLOW
         BTR = __btr(Es, Ep);
 
         double FBAR = __F_bar(Es, Ep, GAMT);
-        double SIGLOW = FBAR * std::pow(R*delta/Es, BTB + BTR)
-                             * std::pow(delta/Ep, BTA + BTR)
-                             * (1. - (XIB+XIA)/delta/(1. - BTB - BTA - 2.*BTR));
+
+        SIGLOW = FBAR * std::pow(R*delta/Es, BTB + BTR)
+                      * std::pow(delta/Ep, BTA + BTR)
+                      * (1. - (XIB+XIA)/delta/(1. - BTB - BTA - 2.*BTR));
+
         // calculate integral along dEs for fixed Ep SIGBEF
-        double Esmax = Es - R*delta;
-        double Esmin = Ep/ETAP;
-        double SIGBEF = 0.;
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
             std::cout << "Skip point at Ep = " << Ep
                       << ", in spectrum E = " << Es
                       << ", ESMIN = " << Esmin
                       << ", ESMAX = " << Esmax
                       << std::endl;
+            SIGBEF = 0;
         } else {
             SIGBEF = simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
         }
 
         // calculate integral along dEp for fixed Es SIGAFT
-        double Epmax = Es/set.eta;
-        double Epmin = Ep + delta;
-        double SIGAFT = 0.;
         if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
             std::cout << "Skip point at Ep = " << Ep
                       << ", in spectrum E = " << Es
                       << ", EPMIN = " << Esmin
                       << ", EPMAX = " << Esmax
                       << std::endl;
+            SIGAFT = 0;
         } else {
             SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
         }
-        std::cout << Es << ", " << Es - Ep << ", " << SIGLOW << ", " << SIGBEF << ", " << SIGAFT << std::endl;
 
         if(radiate) {
             // radiate, update radiated cross section
@@ -366,7 +372,7 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
 
 double CRadCorr::int_es(const double &Esx)
 {
-    double Ep_max = __E_max(Esx);
+    double Ep_max = __Ep_max(Esx);
     double Ep_min = delta*R; // delta2
     if(Ep_max < Ep_min)
         return 0.;
@@ -417,7 +423,7 @@ double CRadCorr::fep(const double &Epx)
 // interpolates or extrapolates
 double CRadCorr::ftcs(const double &E0, const double &Eb)
 {
-    if(Eb >= __E_max(E0))
+    if(Eb >= __Ep_max(E0))
         return 0;
 
     double WEXC = 1 - Eb/E0;
@@ -516,43 +522,43 @@ void CRadCorr::calculateXI(DataSet &set)
 // some inline functions
 //
 // Emax for integration, sin2 and target_M is pre-calculated inside the class
-inline double CRadCorr::__E_max(double Energy)
+inline double CRadCorr::__Ep_max(double _Es)
 {
-    return Energy/(1. + 2.*Energy*sin2/target_M);
+    return _Es/(1. + 2.*_Es*sin2/target_M);
 }
 
 // Emin for integration, sin2 and target_M is pre-calculated inside the class
-inline double CRadCorr::__E_min(double Energy)
+inline double CRadCorr::__Es_min(double _Ep)
 {
-    return Energy/(1. - 2.*Energy*sin2/target_M);
+    return _Ep/(1. - 2.*_Ep*sin2/target_M);
 }
 
 // Q2 for E and E', sin2 is pre-calculated inside the class
-inline double CRadCorr::__Q2(double Energy, double EnergyP)
+inline double CRadCorr::__Q2(double _E, double _Epr)
 {
-    return 4.*Energy*EnergyP*sin2;
+    return 4.*_E*_Epr*sin2;
 }
 
 // log(Q2/m2) for E and E', used inline __Q2
-inline double CRadCorr::__log_Q2m2(double Energy, double EnergyP)
+inline double CRadCorr::__log_Q2m2(double _E, double _Epr)
 {
-    return log(__Q2(Energy, EnergyP)/ELECM/ELECM);
+    return log(__Q2(_E, _Epr)/ELECM/ELECM);
 }
 
 // phi
-inline double CRadCorr::__phi(double x)
+inline double CRadCorr::__phi(double _x)
 {
-    return 1. - x + 3./4.*std::pow(x, 2.);
+    return 1. - _x + 3./4.*std::pow(_x, 2.);
 }
 
 // Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
-inline double CRadCorr::__F_bar(double Energy, double EnergyP, double gamma_t)
+inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 {
     if(!internal_RC)
-        return 1/gamma_t;
+        return 1/_gamma_t;
 
-    double LogQ2m2 = __log_Q2m2(Energy, EnergyP);
-    double Log2EsEp = std::pow(log(Energy/EnergyP), 2);
+    double LogQ2m2 = __log_Q2m2(_E, _Epr);
+    double Log2EsEp = std::pow(log(_E/_Epr), 2);
 
     double DHx = 2.*(3./4.*LogQ2m2 - 1.);    // vertex correction
     DHx += 2.*(LogQ2m2/3. - 5./9.);          // vacuum correction
@@ -561,17 +567,17 @@ inline double CRadCorr::__F_bar(double Energy, double EnergyP, double gamma_t)
 
     DHx *= ALPHA/PI;                         // common factor
 
-    return exp(DHx)/gamma_t;
+    return exp(DHx)/_gamma_t;
 }
 
 // Get tr(Q2), effective radiator thickness before and after the scattering from
 // external Bremsstrahlung process, used inline __log_Q2m2
-inline double CRadCorr::__btr(double Energy, double EnergyP)
+inline double CRadCorr::__btr(double _E, double _Epr)
 {
     if(!internal_RC)
         return 0.;
 
-    return ALPHA/PI*(__log_Q2m2(Energy, EnergyP) - 1.);
+    return ALPHA/PI*(__log_Q2m2(_E, _Epr) - 1.);
 }
 
 // read experimental data in the format line by line
@@ -650,7 +656,6 @@ void CRadCorr::readData(ConfigParser &c_parser)
 
             DataSet new_set(energy, error, norm);
             new_set.weight_mott = F_mott/energy/energy;
-            new_set.eta = 1. + 2.*energy*sin2/target_M;
 
             data_sets.push_back(std::move(new_set));
 
@@ -661,7 +666,6 @@ void CRadCorr::readData(ConfigParser &c_parser)
 
             DataSet new_set(energy, radl_bef, radl_aft, coll_bef, coll_aft, error, norm);
             new_set.weight_mott = F_mott/energy/energy;
-            new_set.eta = 1. + 2.*energy*sin2/target_M;
 
             data_sets.push_back(std::move(new_set));
 

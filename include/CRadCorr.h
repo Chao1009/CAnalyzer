@@ -45,7 +45,6 @@ public:
 
         // calculated
         double weight_mott;   // mott loss
-        double eta;           // parameter related to target, energy and angle
 
         // constructors
         DataSet() {};
@@ -86,13 +85,13 @@ private:
     void readData(ConfigParser &p);
 
     // some lines
-    double __E_max(double E);
-    double __E_min(double E);
+    double __Ep_max(double Es);
+    double __Es_min(double Ep);
     double __phi(double x);
-    double __Q2(double E, double E_);
-    double __log_Q2m2(double E, double E_);
-    double __F_bar(double E, double E_, double gamma_t);
-    double __btr(double E, double E_);
+    double __Q2(double E, double Epr);
+    double __log_Q2m2(double E, double Epr);
+    double __F_bar(double E, double Epr, double gamma_t);
+    double __btr(double E, double Epr);
 
 
     std::vector<DataSet> data_sets;
