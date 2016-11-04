@@ -75,13 +75,25 @@ public:
 private:
     void radcor(DataSet &set, bool radiate = false);
     void xyrad2d(DataSet &set, bool radiate = false);
-    void internalRC(const double &Es, const double &Ep, double &DHO, double &BTR);
     double fes(const double &Es);
     double fep(const double &Ep);
     double ftcs(const double &E0, const double &Eb);
     double terp(const DataSet &set, const double &w);
+    double int_es(const double &Es);
+    double int_ep(const double &Ep);
+    double Iprob(const double &E0, const double &E2, const double &t);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
+
+    // some lines
+    double __E_max(double E);
+    double __E_min(double E);
+    double __phi(double x);
+    double __Q2(double E, double E_);
+    double __log_Q2m2(double E, double E_);
+    double __F_bar(double E, double E_, double gamma_t);
+    double __btr(double E, double E_);
+
 
     std::vector<DataSet> data_sets;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
@@ -93,7 +105,7 @@ private:
     // parameters that will be shared between different functions
     double Es, Ep, R, delta;
     double F_mott, Schwinger;
-    double BTB, BTA, XIB, XIA, GAMT;
+    double BTB, BTA, BTR, XIB, XIA, GAMT;
 
 public:
     static double gamma(const double &z);
