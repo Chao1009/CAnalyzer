@@ -167,6 +167,6 @@ void radcor_test()
     vector<string> file_list = {"exp_9deg.dat", "model_9deg.dat"};
     rad_cor.ReadExpData(file_list);
 
-    rad_cor.RadiativeCorrection(2);
+    rad_cor.RadiativeCorrection(5);
     rad_cor.SaveResult("radcor_out.dat");
 }

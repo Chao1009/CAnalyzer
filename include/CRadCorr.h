@@ -79,8 +79,8 @@ private:
     double ftcs(const double &E0, const double &Eb);
     double terp(const DataSet &set, const double &w);
     double int_es(const double &Es);
-    double int_ep(const double &Ep);
-    double Iprob(const double &E0, const double &E2, const double &t);
+    double int_ep(const double &Ep, const double &Es);
+    double Iprob(const double &E1, const double &E2, const double &bt);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
 
@@ -144,6 +144,29 @@ public:
         while(i++ < Nbins)
         {
             result += 2.*(t->*f)(x) + 4.*(t->*f)(x + s);
+            x += 2.*s;
+        }
+
+        return result*s/3.;
+    }
+
+    template<class T, typename... Args>
+    static double simpson(double begin, double end, double step, int Nmin,
+                          double (T::*f)(const double&, const Args& ...), T *t, const Args&... args)
+    {
+        int Nsteps = (end - begin)/step;
+        int Nbins = std::max(Nmin, Nsteps)/2;
+        double s = (end - begin)/(double)(2.*Nbins);
+
+        // first bin
+        double result =  (t->*f)(begin, args...)
+                       + 4.*(t->*f)(begin + s, args...)
+                       + (t->*f)(end, args...);
+        double x = begin + 2.*s;
+        int i = 1;
+        while(i++ < Nbins)
+        {
+            result += 2.*(t->*f)(x, args...) + 4.*(t->*f)(x + s, args...);
             x += 2.*s;
         }
 

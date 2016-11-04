@@ -377,17 +377,23 @@ double CRadCorr::int_es(const double &Esx)
     if(Ep_max < Ep_min)
         return 0.;
 
-    return Iprob(Es, Esx, BTR)*simpson(Ep_min, Ep_max, &CRadCorr::int_ep, this, sim_step, n_sim);
+    double lost = Iprob(Es, Esx, BTB+BTR);
+
+    return lost*simpson(Ep_min, Ep_max, sim_step, n_sim, &CRadCorr::int_ep, this, Esx);
 }
 
-double int_ep(const double &Ep)
+double CRadCorr::int_ep(const double &Epx, const double &Esx)
 {
-    return 0;
+    double FBAR = __F_bar(Esx, Epx, GAMT);
+    double TRx = __btr(Esx, Epx);
+
+    return FBAR*ftcs(Esx, Epx)*Iprob(Ep, Epx, BTA+TRx);
 }
 
-double Iprob(const double &E0, const double &E2, const double &t)
+double CRadCorr::Iprob(const double &E1, const double &E2, const double &bt)
 {
-    return 0;
+    double v = (E1 - E2)/E1;
+    return bt/gamma(1. + bt)*std::pow(v, bt)/(E1 - E2)*__phi(v);
 }
 
 // for integral along dEs
@@ -548,7 +554,7 @@ inline double CRadCorr::__log_Q2m2(double _E, double _Epr)
 // phi
 inline double CRadCorr::__phi(double _x)
 {
-    return 1. - _x + 3./4.*std::pow(_x, 2.);
+    return 1. - _x + 3.*_x*_x/4.;
 }
 
 // Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
