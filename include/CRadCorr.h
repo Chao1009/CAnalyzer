@@ -80,7 +80,6 @@ private:
     double terp(const DataSet &set, const double &w);
     double int_es(const double &Es);
     double int_ep(const double &Ep, const double &Es);
-    double Iprob(const double &E1, const double &E2, const double &bt);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
 
@@ -88,10 +87,12 @@ private:
     double __Ep_max(double Es);
     double __Es_min(double Ep);
     double __phi(double x);
+    double __eta(double Z);
     double __Q2(double E, double Epr);
     double __log_Q2m2(double E, double Epr);
     double __F_bar(double E, double Epr, double gamma_t);
     double __btr(double E, double Epr);
+    double __I(double E0, double E, double bt);
 
 
     std::vector<DataSet> data_sets;
@@ -104,7 +105,7 @@ private:
     // parameters that will be shared between different functions
     double Es, Ep, R, delta;
     double F_mott, Schwinger;
-    double BTB, BTA, BTR, XIB, XIA, GAMT;
+    double Bz, BTB, BTA, BTR, XIB, XIA, GAMT;
 
 public:
     static double gamma(const double &z);

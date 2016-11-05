@@ -45,10 +45,20 @@ void CRadCorr::Configure(const std::string &path)
     angle /= RADDEG;
     target_M = target_A * AMUMEV;
     sin2 = sin(angle/2)*sin(angle/2);
+    cos2 = cos(angle/2)*cos(angle/2);
+
+    // mott cross section
     F_mott = HBARC*ALPHA*cos(angle/2)/2/sin2;
     F_mott = F_mott*F_mott*1e7; // MeV^2*nb/sr
-    cos2 = cos(angle/2)*cos(angle/2);
+
+    // Schwinger term in internal radiation
     Schwinger = PI*PI/6 - spence(cos2);
+
+    // B(z) Eq. A45 in STEIN
+    Bz = 1./9.*(target_Z + 1.)/(target_Z + __eta(target_Z));
+    Bz /= log(183.*std::pow(target_Z, -1./3.));
+    Bz = 4./3.*(1. + Bz);
+
 }
 
 // read one data file, see comments in readData() for format details
@@ -272,8 +282,11 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
-        BTB = set.radl_before*4./3.;
-        BTA = set.radl_after*4./3.;
+        // originally b(z) = 4./3., which is an approximated value regardless of
+        // Z dependence, it has about 2% difference with the value from Eq. A45
+        // in STEIN, thus b(z) is updated according to that equation.
+        BTB = set.radl_before*Bz;
+        BTA = set.radl_after*Bz;
         XIB = set.coll_before;
         XIA = set.coll_after;
     } else {
@@ -377,7 +390,7 @@ double CRadCorr::int_es(const double &Esx)
     if(Ep_max < Ep_min)
         return 0.;
 
-    double lost = Iprob(Es, Esx, BTB+BTR);
+    double lost = __I(Es, Esx, BTB+BTR);
 
     return lost*simpson(Ep_min, Ep_max, sim_step, n_sim, &CRadCorr::int_ep, this, Esx);
 }
@@ -387,13 +400,7 @@ double CRadCorr::int_ep(const double &Epx, const double &Esx)
     double FBAR = __F_bar(Esx, Epx, GAMT);
     double TRx = __btr(Esx, Epx);
 
-    return FBAR*ftcs(Esx, Epx)*Iprob(Ep, Epx, BTA+TRx);
-}
-
-double CRadCorr::Iprob(const double &E1, const double &E2, const double &bt)
-{
-    double v = (E1 - E2)/E1;
-    return bt/gamma(1. + bt)*std::pow(v, bt)/(E1 - E2)*__phi(v);
+    return FBAR*ftcs(Esx, Epx)*__I(Ep, Epx, BTA+TRx);
 }
 
 // for integral along dEs
@@ -516,11 +523,10 @@ double CRadCorr::terp(const DataSet &set, const double &w)
 void CRadCorr::calculateXI(DataSet &set)
 {
     // formula from STEIN, but old and probably wrong estimation
-    double rad_logp = log(1440*std::pow(target_Z, -2./3.));
-    double rad_log = log(183*std::pow(target_Z, -1./3.));
-    double xeta = rad_logp/rad_log;
     double xi = (PI*ELECM/2/ALPHA)*(set.radl_before + set.radl_after);
-    xi /= (target_Z+xeta)*rad_log;
+    xi /= (target_Z + __eta(target_Z));
+    xi /= log(183*std::pow(target_Z, -1./3.));
+
     set.coll_before = xi/2;
     set.coll_after = xi/2;
 }
@@ -557,6 +563,12 @@ inline double CRadCorr::__phi(double _x)
     return 1. - _x + 3.*_x*_x/4.;
 }
 
+// eta(Z)
+inline double CRadCorr::__eta(double _Z)
+{
+    return log(1440*std::pow(_Z, -2./3.))/log(183*std::pow(_Z, -1./3.));
+}
+
 // Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
 inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 {
@@ -584,6 +596,14 @@ inline double CRadCorr::__btr(double _E, double _Epr)
         return 0.;
 
     return ALPHA/PI*(__log_Q2m2(_E, _Epr) - 1.);
+}
+
+// Probability function I(E0, E, t)
+// NOTICE here we are using b(z)t instead of t
+inline double CRadCorr::__I(double _E0, double _E, double _bt)
+{
+    double _v = (_E0 - _E)/_E0;
+    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/(_E0 - _E)*__phi(_v);
 }
 
 // read experimental data in the format line by line
