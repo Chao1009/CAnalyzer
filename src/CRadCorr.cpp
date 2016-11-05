@@ -297,6 +297,9 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
     }
 
     Es = set.energy;
+    // improvements by J. Singh
+    // two gamma function normalization so
+    // 1/gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
     GAMT = gamma(1. + BTB) * gamma(1. + BTA);
 
     // iteration on data points
@@ -570,6 +573,8 @@ inline double CRadCorr::__eta(double _Z)
 }
 
 // Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
+// improvement from J. Singh, higher order terms are exponentiated,
+// 1+0.5772*bt term is replaced by two gamma normalization, see GAMT for details
 inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 {
     if(!internal_RC)
