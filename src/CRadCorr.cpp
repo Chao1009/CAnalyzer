@@ -407,12 +407,12 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
         double int_2d, sgl_Es, sgl_Ep, sgl_both;
         double FBAR = __F_bar(Es, Ep, GAMT);
 
-        sgl_both = FBAR*std::pow(delta*R/(Es - XIB), BTB + BTR)/gamma(1. + BTB + BTR)
-                       *std::pow(delta/(Ep - XIA), BTA + BTR)/gamma(1. + BTA + BTR);
+        sgl_both = FBAR*std::pow((delta*R + XIB)/Es, BTB + BTR)/gamma(1. + BTB + BTR)
+                       *std::pow((delta + XIA)/Ep, BTA + BTR)/gamma(1. + BTA + BTR);
 
         sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_epds, this, sim_step, n_sim);
         sgl_Ep = simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
-        int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, 1., 100);
+        int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, 2., 50);
 
         if(radiate) {
             // radiate, update radiated cross section
@@ -435,7 +435,7 @@ double CRadCorr::int_es(const double &Esx)
         return 0.;
 
     double lost = __I(Es, Esx, XIB, BTB + BTR);
-    double inner_int = simpson(Ep_min, Ep_max, 1., 100, &CRadCorr::int_ep, this, Esx);
+    double inner_int = simpson(Ep_min, Ep_max, 2., 50, &CRadCorr::int_ep, this, Esx);
     return lost*inner_int;
 }
 
@@ -452,7 +452,7 @@ double CRadCorr::int_epds(const double &Epx)
     double TRx = __btr(Es, Epx);
 
     double lost = __I(Epx, Ep, XIA, BTA + TRx);
-    double int_ds = std::pow(delta/(Epx - XIB), BTB + TRx)/gamma(1. + BTB + TRx);
+    double int_ds = std::pow((delta + XIB)/Epx, BTB + TRx)/gamma(1. + BTB + TRx);
     return lost*int_ds*FBAR*get_cxsn(Es, Epx);
 }
 
@@ -462,7 +462,7 @@ double CRadCorr::int_esdp(const double &Esx)
     double TRx = __btr(Esx, Ep);
 
     double lost = __I(Es, Esx, XIB, BTB + TRx);
-    double int_dp = std::pow(delta*R/(Esx - XIA), BTA + TRx)/gamma(1. + BTA + TRx);
+    double int_dp = std::pow((delta*R + XIA)/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
 
     return lost*int_dp*FBAR*get_cxsn(Esx, Ep);
 }
