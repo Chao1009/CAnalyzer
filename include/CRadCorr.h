@@ -13,20 +13,20 @@ public:
     {
         // read from data file
         double nu;       // nu (MeV)
-        double cxsn;     // cross section
         double stat;     // statistical error
         double syst;     // systematic error
 
         // calculated
         double Ep;       // final energy before coll. loss
-        double PA;       // (Es - Ep)/Es
-        double rad;      // Sigma_Radiated
-        double born;     // Sigma_Born
+        double v;        // (Es - Ep)/Es
+        double rad;      // Radiated cross section
+        double born;     // Born cross section
+        double last;     // Save info from last iteration
 
         // constructors
         DataPoint() {};
         DataPoint(double n, double c, double st, double sy)
-        : nu(n), cxsn(c), stat(st), syst(sy)
+        : nu(n), stat(st), syst(sy), rad(c), born(c), last(c)
         {};
     };
 
@@ -76,14 +76,18 @@ private:
     void xyrad2d(DataSet &set, bool radiate = false);
     double fes(const double &Es);
     double fep(const double &Ep);
-    double ftcs(const double &E0, const double &Eb);
-    double terp(const DataSet &set, const double &w);
     double int_es(const double &Es);
     double int_ep(const double &Ep, const double &Es);
+    double int_esdp(const double &Es);
+    double int_epds(const double &Ep);
+    double get_cxsn(const double &E0, const double &Eb);
+    double interp(const DataSet &set, const double &w);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
 
     // some lines
+    void spectrum_init(DataSet &set);
+    void point_init(DataPoint &point);
     double __Ep_max(double Es);
     double __Es_min(double Ep);
     double __phi(double x);
@@ -92,7 +96,7 @@ private:
     double __log_Q2m2(double E, double Epr);
     double __F_bar(double E, double Epr, double gamma_t);
     double __btr(double E, double Epr);
-    double __I(double E0, double E, double bt);
+    double __I(double E0, double E, double delta, double bt);
 
 
     std::vector<DataSet> data_sets;
@@ -103,9 +107,9 @@ private:
     double angle, sin2, cos2;
 
     // parameters that will be shared between different functions
-    double Es, Ep, R, delta;
-    double F_mott, Schwinger;
-    double Bz, BTB, BTA, BTR, XIB, XIA, GAMT;
+    double F_mott, Schwinger, delta, Bz;           // for whole data sets
+    double Es, BTB, BTA, XIB, XIA, GAMT;           // for each spectrum
+    double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax; // for each data point
 
 public:
     static double gamma(const double &z);

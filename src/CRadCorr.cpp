@@ -183,8 +183,10 @@ void CRadCorr::RadiativeCorrection(int iters)
             std::cout << "RC iteration: " << i
                       << ", spectrum energy: " << set.energy
                       << std::endl;
-
-            radcor(set);
+            if(peak_approx)
+                radcor(set);
+            else
+                xyrad2d(set);
         }
     }
 }
@@ -201,7 +203,10 @@ void CRadCorr::Radiate()
 
         std::cout << "Radiate, spectrum energy: " << set.energy << std::endl;
 
-        radcor(set, true);
+        if(peak_approx)
+            radcor(set);
+        else
+            xyrad2d(set);
     }
 }
 
@@ -215,6 +220,15 @@ void CRadCorr::SaveResult(const std::string &path)
         return;
     }
 
+    output << "#"
+           << std::setw(7) << "ENERGY"
+           << std::setw(8) << "NU"
+           << std::setw(15) << "SIGRAD"
+           << std::setw(15) << "SIGBORN"
+           << std::setw(15) << "STAT. ERR."
+           << std::setw(15) << "SYST. ERR."
+           << std::setw(15) << "ITER. CHANGE"
+           << std::endl;
     for(auto &set : data_sets)
     {
         if(set.non_rad)
@@ -222,19 +236,21 @@ void CRadCorr::SaveResult(const std::string &path)
 
         for(auto &point : set.data)
         {
-            double xsi = point.rad*set.weight_mott;
-            double xsf = point.born*set.weight_mott;
-            double scale = xsf/xsi;
+            double xsr = point.rad*set.weight_mott;
+            double xsb = point.born*set.weight_mott;
+            double xsl = point.last*set.weight_mott;
+            double scale = xsb/xsr;
             double stat_err = point.stat*scale;
             double syst_err = point.syst*scale;
-            double rc_err = set.error*std::abs(xsf - xsi);
+            double rc_err = set.error*std::abs(xsb - xsr);
             syst_err = sqrt(syst_err*syst_err + rc_err*rc_err);
             output << std::setw(8) << set.energy
                    << std::setw(8) << point.nu
-                   << std::setw(15) << xsi
-                   << std::setw(15) << xsf
+                   << std::setw(15) << xsr
+                   << std::setw(15) << xsb
                    << std::setw(15) << stat_err
                    << std::setw(15) << syst_err
+                   << std::setw(15) << xsb - xsl
                    << std::endl;
         }
     }
@@ -280,48 +296,15 @@ void CRadCorr::SaveResult(const std::string &path)
 //==============================================================================
 void CRadCorr::radcor(DataSet &set, bool radiate)
 {
-    // update these parameters when external RC is ON
-    if(external_RC) {
-        // originally b(z) = 4./3., which is an approximated value regardless of
-        // Z dependence, it has about 2% difference with the value from Eq. A45
-        // in STEIN, thus b(z) is updated according to that equation.
-        BTB = set.radl_before*Bz;
-        BTA = set.radl_after*Bz;
-        XIB = set.coll_before;
-        XIA = set.coll_after;
-    } else {
-        BTB = 0;
-        BTA = 0;
-        XIB = 0;
-        XIA = 0;
-    }
-
-    Es = set.energy;
-    // improvements by J. Singh
-    // two gamma function normalization so
-    // 1/gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
-    GAMT = gamma(1. + BTB) * gamma(1. + BTA);
+    spectrum_init(set);
 
     // iteration on data points
     for(auto &point : set.data)
     {
-
-        // kinematics
-        Ep = point.Ep;
-
-        double Esmin = __Es_min(Ep);
-        double Epmax = __Ep_max(Es);
-
-        R = Esmin/Epmax * Es/Ep;
-
-        double Esmax = Es - R*delta;
-        double Epmin = Ep + delta;
+        point_init(point);
 
         // components of SIGRAD
         double SIGLOW, SIGBEF, SIGAFT;
-
-        // calculate low energy corner SIGLOW
-        BTR = __btr(Es, Ep);
 
         double FBAR = __F_bar(Es, Ep, GAMT);
 
@@ -363,6 +346,35 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
     }
 }
 
+// for integral along dEs
+double CRadCorr::fes(const double &Esx)
+{
+    double FBAR = __F_bar(Esx, Ep, GAMT);
+    double TRx = __btr(Esx, Ep);
+
+    // calculate effect of multiple soft photon emission
+    double FSOFT = std::pow(1. - Esx/Es, BTB+TRx)*std::pow((Es-Esx)/Ep/R, BTA+TRx);
+
+    double FES = (BTB + TRx)/(Es - Esx)*__phi(1. - Esx/Es);
+    FES += XIB/(Es - Esx)/(Es - Esx);
+    FES *= FSOFT*FBAR*get_cxsn(Esx, Ep);
+    return FES;
+}
+
+// for integral along dEp
+double CRadCorr::fep(const double &Epx)
+{
+    double FBAR = __F_bar(Es, Epx, GAMT);
+    double TRx = __btr(Es, Epx);
+
+    // calculate effect of multiple soft photon emission
+    double FSOFT = std::pow(1. - Ep/Epx, BTA+TRx)*std::pow((Epx-Ep)*R/Es, BTB+TRx);
+
+    double FEP = (BTA + TRx)/(Epx - Ep)*__phi(1. - Ep/Epx);
+    FEP += XIA/(Epx - Ep)/(Epx - Ep);
+    FEP *= FSOFT*FBAR*get_cxsn(Es, Epx);
+    return FEP;
+}
 
 //==============================================================================
 // radiative correction for one spectrum without peaking approximation          
@@ -383,61 +395,79 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
 //==============================================================================
 void CRadCorr::xyrad2d(DataSet &set, bool radiate)
 {
+    spectrum_init(set);
+
+    // iteration on data points
+    for(auto &point : set.data)
+    {
+        point_init(point);
+
+        // components of SIGRAD
+        double int_2d, sgl_Es, sgl_Ep, sgl_both;
+        double FBAR = __F_bar(Es, Ep, GAMT);
+
+        sgl_both = FBAR*std::pow(delta*R/(Es - XIB), BTB + BTR)/gamma(1. + BTB + BTR)
+                       *std::pow(delta/(Ep - XIA), BTA + BTR)/gamma(1. + BTA + BTR);
+
+        sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_epds, this, sim_step, n_sim);
+        sgl_Ep = simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
+        int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, 1., 100);
+
+        if(radiate) {
+            // radiate, update radiated cross section
+            point.rad = sgl_both*set.weight_mott*point.born + sgl_Es + sgl_Ep + int_2d;
+        } else {
+            // save last iteration
+            point.last = point.born;
+            // radiative correction, update the born cross section
+            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/set.weight_mott)/sgl_both;
+        }
+    }
 
 }
 
 double CRadCorr::int_es(const double &Esx)
 {
     double Ep_max = __Ep_max(Esx);
-    double Ep_min = delta*R; // delta2
+    double Ep_min = delta*R + Ep; // delta2
     if(Ep_max < Ep_min)
         return 0.;
 
-    double lost = __I(Es, Esx, BTB+BTR);
-
-    return lost*simpson(Ep_min, Ep_max, sim_step, n_sim, &CRadCorr::int_ep, this, Esx);
+    double lost = __I(Es, Esx, XIB, BTB + BTR);
+    double inner_int = simpson(Ep_min, Ep_max, 1., 100, &CRadCorr::int_ep, this, Esx);
+    return lost*inner_int;
 }
 
 double CRadCorr::int_ep(const double &Epx, const double &Esx)
 {
     double FBAR = __F_bar(Esx, Epx, GAMT);
     double TRx = __btr(Esx, Epx);
-
-    return FBAR*ftcs(Esx, Epx)*__I(Ep, Epx, BTA+TRx);
+    return FBAR*get_cxsn(Esx, Epx)*__I(Epx, Ep, XIA, BTA + TRx);
 }
 
-// for integral along dEs
-double CRadCorr::fes(const double &Esx)
-{
-    double FBAR = __F_bar(Esx, Ep, GAMT);
-    double TRx = __btr(Esx, Ep);
-
-    // calculate effect of multiple soft photon emission
-    double FSOFT = std::pow(1. - Esx/Es, BTB+TRx)*std::pow((Es-Esx)/Ep/R, BTA+TRx);
-
-    double FES = (BTB + TRx)/(Es - Esx)*__phi(1. - Esx/Es);
-    FES += XIB/(Es - Esx)/(Es - Esx);
-    FES *= FSOFT*FBAR*ftcs(Esx, Ep);
-    return FES;
-}
-
-// for integral along dEp
-double CRadCorr::fep(const double &Epx)
+double CRadCorr::int_epds(const double &Epx)
 {
     double FBAR = __F_bar(Es, Epx, GAMT);
     double TRx = __btr(Es, Epx);
 
-    // calculate effect of multiple soft photon emission
-    double FSOFT = std::pow(1. - Ep/Epx, BTA+TRx)*std::pow((Epx-Ep)*R/Es, BTB+TRx);
+    double lost = __I(Epx, Ep, XIA, BTA + TRx);
+    double int_ds = std::pow(delta/(Epx - XIB), BTB + TRx)/gamma(1. + BTB + TRx);
+    return lost*int_ds*FBAR*get_cxsn(Es, Epx);
+}
 
-    double FEP = (BTA + TRx)/(Epx - Ep)*__phi(1. - Ep/Epx);
-    FEP += XIA/(Epx - Ep)/(Epx - Ep);
-    FEP *= FSOFT*FBAR*ftcs(Es, Epx);
-    return FEP;
+double CRadCorr::int_esdp(const double &Esx)
+{
+    double FBAR = __F_bar(Esx, Ep, GAMT);
+    double TRx = __btr(Esx, Ep);
+
+    double lost = __I(Es, Esx, XIB, BTB + TRx);
+    double int_dp = std::pow(delta*R/(Esx - XIA), BTA + TRx)/gamma(1. + BTA + TRx);
+
+    return lost*int_dp*FBAR*get_cxsn(Esx, Ep);
 }
 
 // interpolates or extrapolates
-double CRadCorr::ftcs(const double &E0, const double &Eb)
+double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 {
     if(Eb >= __Ep_max(E0))
         return 0;
@@ -446,7 +476,7 @@ double CRadCorr::ftcs(const double &E0, const double &Eb)
 
     // less than the lowest energy we have
     if(E0 <= data_sets.at(0).energy) {
-        return terp(data_sets.at(0), WEXC)*F_mott/E0/E0;
+        return interp(data_sets.at(0), WEXC)*F_mott/E0/E0;
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 1;
@@ -457,7 +487,8 @@ double CRadCorr::ftcs(const double &E0, const double &Eb)
         }
         double E1 = data_sets.at(i-1).energy;
         double E2 = data_sets.at(i).energy;
-        double FTCS = (terp(data_sets.at(i-1), WEXC)*(E2-E0) + terp(data_sets.at(i), WEXC)*(E0-E1))/(E2-E1);
+        double FTCS = (interp(data_sets.at(i-1), WEXC)*(E2-E0)
+                    + interp(data_sets.at(i), WEXC)*(E0-E1))/(E2-E1);
         return F_mott/E0/E0*FTCS;
     } else {
         std::cerr << "Required energy E0 = " << E0
@@ -477,20 +508,20 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
 
     int mid = (first + last - 1)/2;
 
-    if(key < array[mid].PA)
+    if(key < array[mid].v)
         return __rc_binary_search(array, key, first, mid);
-    else if(key > array[mid+1].PA)
+    else if(key > array[mid+1].v)
         return __rc_binary_search(array, key, mid+1, last);
     else
         return mid;
 }
 
-double CRadCorr::terp(const DataSet &set, const double &w)
+double CRadCorr::interp(const DataSet &set, const double &w)
 {
     // exceeds the boundary
-    if(w < set.data.front().PA)
+    if(w < set.data.front().v)
         return 0.;
-    if(w >= set.data.back().PA)
+    if(w >= set.data.back().v)
         return set.data.back().born;
 
     int j = __rc_binary_search(&set.data[0], w, 0, set.data.size());
@@ -502,9 +533,9 @@ double CRadCorr::terp(const DataSet &set, const double &w)
         const DataPoint &p1 = set.data.at(j);
         const DataPoint &p2 = set.data.at(j+1);
 
-        double interp = p1.born*(p2.PA - w) + p2.born*(w - p1.PA);
+        double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
         // unknown constant 0.00001 here, probably some protection for two same points
-        return interp/(p2.PA - p1.PA);// + 0.00001);
+        return _interp/(p2.v - p1.v);// + 0.00001);
     }
 
     // 3 point parabolic fit
@@ -512,9 +543,9 @@ double CRadCorr::terp(const DataSet &set, const double &w)
     const DataPoint &p2 = set.data.at(j);
     const DataPoint &p3 = set.data.at(j+1);
     double x, xp, xm, a, b, c;
-    x = w - p2.PA;
-    xp = p3.PA - p2.PA;
-    xm = p1.PA - p2.PA;
+    x = w - p2.v;
+    xp = p3.v - p2.v;
+    xm = p1.v - p2.v;
     a = p2.born;
     c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
     c /= xp*xm*2;
@@ -532,6 +563,50 @@ void CRadCorr::calculateXI(DataSet &set)
 
     set.coll_before = xi/2;
     set.coll_after = xi/2;
+}
+
+// spectrum based kinematics intialization
+inline void CRadCorr::spectrum_init(DataSet &set)
+{
+    // update these parameters when external RC is ON
+    if(external_RC) {
+        // originally b(z) = 4./3., which is an approximated value regardless of
+        // Z dependence, it has about 2% difference with the value from Eq. A45
+        // in STEIN, thus b(z) is updated according to that equation.
+        BTB = set.radl_before*Bz;
+        BTA = set.radl_after*Bz;
+        XIB = set.coll_before;
+        XIA = set.coll_after;
+    } else {
+        BTB = 0;
+        BTA = 0;
+        XIB = 0;
+        XIA = 0;
+    }
+
+    Es = set.energy;
+    // improvements by J. Singh
+    // two gamma function normalization so
+    // 1/gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
+    GAMT = gamma(1. + BTB) * gamma(1. + BTA);
+}
+
+// data point based kinematics initialization
+inline void CRadCorr::point_init(DataPoint &point)
+{
+    // kinematics
+    Ep = point.Ep;
+
+    Esmin = __Es_min(Ep);
+    Epmax = __Ep_max(Es);
+
+    R = Esmin/Epmax * Es/Ep;
+
+    Esmax = Es - R*delta;
+    Epmin = Ep + delta;
+
+    // equivalent radiator from Bremsstrahlung
+    BTR = __btr(Es, Ep);
 }
 
 // some inline functions
@@ -569,28 +644,30 @@ inline double CRadCorr::__phi(double _x)
 // eta(Z)
 inline double CRadCorr::__eta(double _Z)
 {
-    return log(1440*std::pow(_Z, -2./3.))/log(183*std::pow(_Z, -1./3.));
+    return log(1440.*std::pow(_Z, -2./3.))/log(183.*std::pow(_Z, -1./3.));
 }
 
 // Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
-// improvement from J. Singh, higher order terms are exponentiated,
+// improvement from J. Singh, higher order terms DHO is exponentiated,
 // 1+0.5772*bt term is replaced by two gamma normalization, see GAMT for details
+// exp(DHO)/gamma(1+bt) = (1 + 0.5772*bt + ...)*(1 + DHO + ...)
+//                      = 1 + 0.5772*bt + DHO + ... [Eq. (2.8) in TSAI71]
 inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 {
     if(!internal_RC)
-        return 1/_gamma_t;
+        return 1./_gamma_t;
 
     double LogQ2m2 = __log_Q2m2(_E, _Epr);
     double Log2EsEp = std::pow(log(_E/_Epr), 2);
 
-    double DHx = 2.*(3./4.*LogQ2m2 - 1.);    // vertex correction
-    DHx += 2.*(LogQ2m2/3. - 5./9.);          // vacuum correction
-    DHx += Schwinger;                        // Schwinger term, angle dependent
-    DHx += -0.5*Log2EsEp;                    // Correction to peaking approx. ?
+    double DHO = 2.*(3./4.*LogQ2m2 - 1.);    // vertex correction
+    DHO += 2.*(LogQ2m2/3. - 5./9.);          // vacuum correction
+    DHO += Schwinger;                        // Schwinger term, angle dependent
+    DHO += -0.5*Log2EsEp;                    // Correction to peaking approx. ?
 
-    DHx *= ALPHA/PI;                         // common factor
+    DHO *= ALPHA/PI;                         // common factor
 
-    return exp(DHx)/_gamma_t;
+    return exp(DHO)/_gamma_t;
 }
 
 // Get tr(Q2), effective radiator thickness before and after the scattering from
@@ -604,11 +681,12 @@ inline double CRadCorr::__btr(double _E, double _Epr)
 }
 
 // Probability function I(E0, E, t)
+// E0 is replaced by E0 - delta to include the ffect from ionization
 // NOTICE here we are using b(z)t instead of t
-inline double CRadCorr::__I(double _E0, double _E, double _bt)
+inline double CRadCorr::__I(double _E0, double _E, double _D, double _bt)
 {
-    double _v = (_E0 - _E)/_E0;
-    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/(_E0 - _E)*__phi(_v);
+    double _v = (_E0 - _D - _E)/_E0;
+    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/(_E0 - _D - _E)*__phi(_v);
 }
 
 // read experimental data in the format line by line
@@ -647,16 +725,13 @@ void CRadCorr::readData(ConfigParser &c_parser)
             DataSet &set = data_sets.at(set_idx);
 
             c_parser >> nu >> cxsn >> stat >> syst;
-            DataPoint new_point(nu, cxsn, stat, syst);
             // apply normalization
-            new_point.cxsn *= set.normalization;
-            new_point.stat *= set.normalization;
+            cxsn *= set.normalization/set.weight_mott;
+            stat *= set.normalization;
+            DataPoint new_point(nu, cxsn, stat, syst);
             // calculate ep
             new_point.Ep = set.energy - nu;
-            new_point.PA = nu/set.energy;
-            // initial values for sigrad and sigborn
-            new_point.rad = new_point.cxsn/set.weight_mott;
-            new_point.born = new_point.rad;
+            new_point.v = nu/set.energy;
 
             set.data.push_back(std::move(new_point));
 
