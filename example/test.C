@@ -144,7 +144,7 @@ void function_test()
 void radcor_test()
 {
     CRadCorr rad_cor;
-    rad_cor.Configure("rad_cor.conf");
+    rad_cor.Configure("radcor.conf");
 
     cout << "Internal RC is ";
     if(rad_cor.GetConfig<bool>("Internal RC"))

@@ -7,6 +7,8 @@
 #include <fstream>
 #include <vector>
 #include <queue>
+#include <list>
+#include <utility>
 #include <typeinfo>
 
 // config value class
@@ -18,20 +20,22 @@ class ConfigParser
 public:
     ConfigParser(const std::string &s = " ,\t",  // splitters
                  const std::string &w = " \t",  // white_space
-                 const std::vector<std::string> &c = {"#", "//"}); // comment_mark
+                 const std::vector<std::string> &c = {"#", "//"}, // comment_mark
+                 const std::pair<std::string, std::string> &p = std::make_pair("/*", "*/")); // comment_pair
     virtual ~ConfigParser();
     void SetSplitters(const std::string &s) {splitters = s;};
     void SetWhiteSpace(const std::string &w) {white_space = w;};
     void SetCommentMarks(const std::vector<std::string> &c) {comment_marks = c;};
+    void SetCommentPair(const std::string &o, const std::string &c) {comment_pair = std::make_pair(o, c);};
     void AddCommentMark(const std::string &c);
     void RemoveCommentMark(const std::string &c);
     void EraseCommentMarks();
 
     bool OpenFile(const std::string &path);
+    bool ReadFile(const std::string &path);
+    void ReadBuffer(const char *);
     void CloseFile();
-
-    void OpenBuffer(char *);
-    void ClearBuffer();
+    void Clear();
 
     bool ParseLine();
     void ParseLine(const std::string &line);
@@ -46,19 +50,26 @@ public:
     const std::string &GetSplitters() const {return splitters;};
     const std::string &GetWhiteSpace() const {return white_space;};
     const std::vector<std::string> &GetCommentMarks() const {return comment_marks;};
+    const std::pair<std::string, std::string> &GetCommentPair() const {return comment_pair;};
 
 private:
     std::string splitters;
     std::string white_space;
     std::vector<std::string> comment_marks;
+    std::pair<std::string, std::string> comment_pair;
     std::queue<std::string> lines;
     std::string current_line;
     int line_number;
+    bool in_comment_pair;
     std::queue<std::string> elements;
     std::ifstream infile;
 
 private:
+    void buffer_process(std::string &buffer);
+    bool parse_file();
+    bool parse_buffer();
     std::string comment_out(const std::string &str, size_t index = 0);
+    bool comment_between(std::string &str, const std::string &open, const std::string &close);
 
 public:
     static std::string comment_out(const std::string &str, const std::string &c);
@@ -68,6 +79,9 @@ public:
     static std::string str_replace(const std::string &str, const std::string &ignore, const char &rc = ' ');
     static std::string str_lower(const std::string &str);
     static std::string str_upper(const std::string &str);
+    static std::vector<std::pair<int, int>> find_pair(const std::string &str,
+                                                      const std::string &open,
+                                                      const std::string &close);
     static bool strcmp_case_insensitive(const std::string &str1, const std::string &str2);
     static int find_integer(const std::string &str, const size_t &pos = 0);
     static std::vector<int> find_integers(const std::string &str);

@@ -307,7 +307,6 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
         double SIGLOW, SIGBEF, SIGAFT;
 
         double FBAR = __F_bar(Es, Ep, GAMT);
-
         SIGLOW = FBAR * std::pow(R*delta/Es, BTB + BTR)
                       * std::pow(delta/Ep, BTA + BTR)
                       * (1. - (XIB+XIA)/delta/(1. - BTB - BTA - 2.*BTR));
@@ -340,6 +339,8 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
             // radiate, update radiated cross section
             point.rad = SIGLOW*set.weight_mott*point.born + SIGBEF + SIGAFT;
         } else {
+            // save last iteration
+            point.last = point.born;
             // radiative correction, update the born cross section
             point.born = (point.rad - (SIGBEF+SIGAFT)/set.weight_mott)/SIGLOW;
         }
