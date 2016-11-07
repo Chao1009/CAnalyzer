@@ -98,7 +98,7 @@ private:
     double __log_Q2m2(double E, double Epr);
     double __F_bar(double E, double Epr, double gamma_t);
     double __btr(double E, double Epr);
-    double __I(double E0, double E, double delta, double bt);
+    double __I(double E0, double E, double xi, double bt);
 
 
     std::vector<DataSet> data_sets;
@@ -109,9 +109,9 @@ private:
     double angle, sin2, cos2;
 
     // parameters that will be shared between different functions
-    double F_mott, Schwinger, delta, Bz;           // for whole data sets
-    double Es, BTB, BTA, XIB, XIA, GAMT;           // for each spectrum
-    double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax; // for each data point
+    double F_mott, Schwinger, delta, delta1, delta2, Bz; // for whole data sets
+    double Es, BTB, BTA, XIB, XIA, GAMT;                 // for each spectrum
+    double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax;       // for each data point
 
 public:
     static double gamma(const double &z);

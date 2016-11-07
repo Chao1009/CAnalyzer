@@ -42,6 +42,8 @@ void CRadCorr::Configure(const std::string &path)
     sim_step_2d = getConfig<double>("2D Simpson Step Size", 1.);
 
     delta = getConfig<double>("IR DIV Delta", 10);
+    delta1 = getConfig<double>("Delta1", 5);
+    delta2 = getConfig<double>("Delta2", 5);
     target_Z = getConfig<double>("Target Z", 2);
     target_A = getConfig<double>("Target A", 3.0149322473);
     angle = getConfig<double>("Scattering Angle", 6.1);
@@ -470,8 +472,8 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
         double int_2d = 0, sgl_Es = 0, sgl_Ep = 0, sgl_both = 0;
         double FBAR = __F_bar(Es, Ep, GAMT);
 
-        sgl_both = FBAR*std::pow((delta*R + XIB)/Es, BTB + BTR)/gamma(1. + BTB + BTR)
-                       *std::pow((delta + XIA)/Ep, BTA + BTR)/gamma(1. + BTA + BTR);
+        sgl_both = FBAR*std::pow((delta1 + XIB)/Es, BTB + BTR)/gamma(1. + BTB + BTR)
+                       *std::pow((delta2 + XIA)/Ep, BTA + BTR)/gamma(1. + BTA + BTR);
 
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
             std::cout << "Skip point at Ep = " << Ep
@@ -510,7 +512,7 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
 double CRadCorr::int_es(const double &Esx)
 {
     double Ep_max = __Ep_max(Esx);
-    double Ep_min = delta*R + Ep; // delta2
+    double Ep_min = delta2 + Ep; // delta2
     if(Ep_max < Ep_min)
         return 0.;
 
@@ -532,7 +534,7 @@ double CRadCorr::int_epds(const double &Epx)
     double TRx = __btr(Es, Epx);
 
     double lost = __I(Epx, Ep, XIA, BTA + TRx);
-    double int_ds = std::pow((delta + XIB)/Epx, BTB + TRx)/gamma(1. + BTB + TRx);
+    double int_ds = std::pow((delta1 + XIB)/Epx, BTB + TRx)/gamma(1. + BTB + TRx);
     return lost*int_ds*FBAR*get_cxsn(Es, Epx);
 }
 
@@ -542,7 +544,7 @@ double CRadCorr::int_esdp(const double &Esx)
     double TRx = __btr(Esx, Ep);
 
     double lost = __I(Es, Esx, XIB, BTB + TRx);
-    double int_dp = std::pow((delta*R + XIA)/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
+    double int_dp = std::pow((delta2 + XIA)/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
 
     return lost*int_dp*FBAR*get_cxsn(Esx, Ep);
 }
@@ -681,10 +683,14 @@ inline void CRadCorr::point_init(DataPoint &point)
     Esmin = __Es_min(Ep);
     Epmax = __Ep_max(Es);
 
-    R = Esmin/Epmax * Es/Ep;
-
-    Esmax = Es - R*delta;
-    Epmin = Ep + delta;
+    if(peak_approx) {
+        R = Esmin/Epmax * Es/Ep;
+        Esmax = Es - R*delta;
+        Epmin = Ep + delta;
+    } else {
+        Esmax = Es - delta1;
+        Epmin = Ep + delta2;
+    }
 
     // equivalent radiator from Bremsstrahlung
     BTR = __btr(Es, Ep);
@@ -741,12 +747,13 @@ inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
     double LogQ2m2 = __log_Q2m2(_E, _Epr);
     double Log2EsEp = std::pow(log(_E/_Epr), 2);
 
-    double DHO = 2.*(3./4.*LogQ2m2 - 1.);    // vertex correction
-    DHO += 2.*(LogQ2m2/3. - 5./9.);          // vacuum correction
-    DHO += Schwinger;                        // Schwinger term, angle dependent
-    DHO += -0.5*Log2EsEp;                    // Correction to peaking approx. ?
+    double DHO = 2.*(3./4.*LogQ2m2 - 1.);   // vertex correction
+    DHO += 2.*(LogQ2m2/3. - 5./9.);         // vacuum correction
+    DHO += Schwinger;                       // Schwinger term, angle dependent
+    if(peak_approx)
+        DHO += -0.5*Log2EsEp;               // Correction to peaking approx. ?
 
-    DHO *= ALPHA/PI;                         // common factor
+    DHO *= ALPHA/PI;                        // common factor
 
     return exp(DHO)/_gamma_t;
 }
