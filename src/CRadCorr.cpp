@@ -34,8 +34,13 @@ void CRadCorr::Configure(const std::string &path)
     external_RC = getConfig<bool>("External RC", true);
     user_defined_XI = getConfig<bool>("User Defined XI", false);
     peak_approx = getConfig<bool>("Peaking Approximation", true);
+
+    iter_prec = getConfig<double>("Iteration Precision", 0.005);
     n_sim = getConfig<int>("Min Number of Simpson Bins", 10000);
     sim_step = getConfig<double>("Simpson Step Size", 0.1);
+    n_sim_2d = getConfig<int>("Min 2D Simpson Bins", 100);
+    sim_step_2d = getConfig<double>("2D Simpson Step Size", 1.);
+
     delta = getConfig<double>("IR DIV Delta", 10);
     target_Z = getConfig<double>("Target Z", 2);
     target_A = getConfig<double>("Target A", 3.0149322473);
@@ -172,23 +177,10 @@ void CRadCorr::RadiativeCorrection(int iters)
     if(!SanityCheck())
         return;
 
-    for(int i = 1; i <= iters; ++i)
-    {
-        for(auto &set : data_sets)
-        {
-            // do nothing for non-radiated data
-            if(set.non_rad)
-                continue;
-
-            std::cout << "RC iteration: " << i
-                      << ", spectrum energy: " << set.energy
-                      << std::endl;
-            if(peak_approx)
-                radcor(set);
-            else
-                xyrad2d(set);
-        }
-    }
+    if(iters > 0)
+        iterByNumbers(iters);
+    else
+        iterByPrecision();
 }
 
 void CRadCorr::Radiate()
@@ -227,7 +219,7 @@ void CRadCorr::SaveResult(const std::string &path)
            << std::setw(15) << "SIGBORN"
            << std::setw(15) << "STAT. ERR."
            << std::setw(15) << "SYST. ERR."
-           << std::setw(15) << "ITER. CHANGE"
+//           << std::setw(15) << "ITER. CHANGE"
            << std::endl;
     for(auto &set : data_sets)
     {
@@ -238,7 +230,7 @@ void CRadCorr::SaveResult(const std::string &path)
         {
             double xsr = point.rad*set.weight_mott;
             double xsb = point.born*set.weight_mott;
-            double xsl = point.last*set.weight_mott;
+//            double xsl = point.last*set.weight_mott;
             double scale = xsb/xsr;
             double stat_err = point.stat*scale;
             double syst_err = point.syst*scale;
@@ -250,11 +242,84 @@ void CRadCorr::SaveResult(const std::string &path)
                    << std::setw(15) << xsb
                    << std::setw(15) << stat_err
                    << std::setw(15) << syst_err
-                   << std::setw(15) << xsb - xsl
+//                   << std::setw(15) << xsb - xsl
                    << std::endl;
         }
     }
 }
+
+void CRadCorr::iterByNumbers(int iters)
+{
+    for(int i = 1; i <= iters; ++i)
+    {
+        for(auto &set : data_sets)
+        {
+            // do nothing for non-radiated data
+            if(set.non_rad)
+                continue;
+
+            std::cout << "RC iteration: " << i << " of " << iters
+                      << ", spectrum E = " << set.energy
+                      << std::endl;
+            if(peak_approx)
+                radcor(set);
+            else
+                xyrad2d(set);
+        }
+    }
+}
+
+void CRadCorr::iterByPrecision()
+{
+    // do first iteration anyway
+    bool iter = true;
+    int i = 1;
+
+    while(iter)
+    {
+        for(auto &set : data_sets)
+        {
+            // do nothing for non-radiated data
+            if(set.non_rad)
+                continue;
+
+            std::cout << "RC iteration: " << i
+                      << ", spectrum E = " << set.energy
+                      << std::endl;
+            if(peak_approx)
+                radcor(set);
+            else
+                xyrad2d(set);
+        }
+
+        // after correction, check if this iteration reaches the precision
+        iter = false;
+        for(auto &set : data_sets)
+        {
+            for(auto point : set.data)
+            {
+                double rel_diff = (point.born - point.last)/point.born;
+                // the rel. diff. comes from this iteration is larger than wanted
+                // precision
+                if(std::abs(rel_diff) > iter_prec)
+                {
+                    iter = true; // still need more iterations
+                    break; // no need to check other points
+                }
+            }
+
+            if(iter) {
+                std::cout << "Iteration is not converging within the precision = "
+                          << iter_prec << ", conitnue..."
+                          << std::endl;
+                break; // no need to check other sets
+            }
+        }
+
+        ++i;
+    }
+}
+
 
 //==============================================================================
 // radiative correction for one spectrum                                        
@@ -304,7 +369,7 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
         point_init(point);
 
         // components of SIGRAD
-        double SIGLOW, SIGBEF, SIGAFT;
+        double SIGLOW = 0, SIGBEF = 0, SIGAFT = 0;
 
         double FBAR = __F_bar(Es, Ep, GAMT);
         SIGLOW = FBAR * std::pow(R*delta/Es, BTB + BTR)
@@ -318,7 +383,6 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
                       << ", ESMIN = " << Esmin
                       << ", ESMAX = " << Esmax
                       << std::endl;
-            SIGBEF = 0;
         } else {
             SIGBEF = simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
         }
@@ -330,7 +394,6 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
                       << ", EPMIN = " << Esmin
                       << ", EPMAX = " << Esmax
                       << std::endl;
-            SIGAFT = 0;
         } else {
             SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
         }
@@ -404,15 +467,32 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
         point_init(point);
 
         // components of SIGRAD
-        double int_2d, sgl_Es, sgl_Ep, sgl_both;
+        double int_2d = 0, sgl_Es = 0, sgl_Ep = 0, sgl_both = 0;
         double FBAR = __F_bar(Es, Ep, GAMT);
 
         sgl_both = FBAR*std::pow((delta*R + XIB)/Es, BTB + BTR)/gamma(1. + BTB + BTR)
                        *std::pow((delta + XIA)/Ep, BTA + BTR)/gamma(1. + BTA + BTR);
 
-        sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_epds, this, sim_step, n_sim);
-        sgl_Ep = simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
-        int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, 2., 50);
+        if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
+            std::cout << "Skip point at Ep = " << Ep
+                      << ", in spectrum E = " << Es
+                      << ", ESMIN = " << Esmin
+                      << ", ESMAX = " << Esmax
+                      << std::endl;
+        } else {
+            int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, sim_step_2d, n_sim_2d);
+            sgl_Ep = simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
+        }
+
+        if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
+            std::cout << "Skip point at Ep = " << Ep
+                      << ", in spectrum E = " << Es
+                      << ", EPMIN = " << Esmin
+                      << ", EPMAX = " << Esmax
+                      << std::endl;
+        } else {
+            sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_epds, this, sim_step, n_sim);
+        }
 
         if(radiate) {
             // radiate, update radiated cross section
@@ -435,7 +515,7 @@ double CRadCorr::int_es(const double &Esx)
         return 0.;
 
     double lost = __I(Es, Esx, XIB, BTB + BTR);
-    double inner_int = simpson(Ep_min, Ep_max, 2., 50, &CRadCorr::int_ep, this, Esx);
+    double inner_int = simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_ep, this, Esx);
     return lost*inner_int;
 }
 

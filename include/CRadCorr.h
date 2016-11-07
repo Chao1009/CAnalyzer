@@ -67,11 +67,13 @@ public:
     void ReadExpData(const std::string &path);
     void ReadExpData(const std::vector<std::string> &filelist);
     bool SanityCheck();
-    void RadiativeCorrection(int iters = 10);
+    void RadiativeCorrection(int iters = 0);
     void Radiate();
     void SaveResult(const std::string &path);
 
 private:
+    void iterByNumbers(int iters);
+    void iterByPrecision();
     void radcor(DataSet &set, bool radiate = false);
     void xyrad2d(DataSet &set, bool radiate = false);
     double fes(const double &Es);
@@ -101,8 +103,8 @@ private:
 
     std::vector<DataSet> data_sets;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
-    int n_sim;
-    double sim_step;
+    int n_sim, n_sim_2d;
+    double iter_prec, sim_step, sim_step_2d;
     double target_Z, target_A, target_M;
     double angle, sin2, cos2;
 
@@ -116,6 +118,7 @@ public:
     static double spence(const double &z, const double &res = 1e-15);
     static double spence_tr(const double &z, const double &res, const int &nmax);
 
+    // simpson integration
     static double simpson(double begin, double end, double (*f)(const double&), double step, int Nmin)
     {
         int Nsteps = (end - begin)/step;
