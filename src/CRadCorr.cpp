@@ -335,6 +335,11 @@ void CRadCorr::iterByPrecision()
 //------------------------------------------------------------------------------
 // MODIFIED RADCOR - 04/01/2007                                                 
 // ***by Jaideep Singh                                                          
+//========================LATEST CHANGES========================================
+// 1. Adapted the code in C++                                                   
+// 2. Replaced B(z) with analytical form                                        
+// 3. Corrected the calculation in cross section interpolation                  
+// ***by Chao Peng, Duke University, 11/8/2016                                  
 //========================REFERENCES============================================
 // MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
 //           Scattering                                                         
@@ -446,8 +451,14 @@ double CRadCorr::fep(const double &Epx)
 // radiative correction for one spectrum without peaking approximation          
 //========================ORIGINAL AUTHORS======================================
 // XYRAD2D FORTRAN CODE                                                         
-// ***by. Xuefei Yan, Duke University,  10/11/2016                              
-//                                                                              
+// ***by Xuefei Yan, Duke University,  10/11/2016                               
+//========================LATEST CHANGES========================================
+// 1. Adapted the code in C++                                                   
+// 2. Now get cross section from interpolation of input data instead of model   
+// 3. Add external radiative correction part                                    
+// 4. Replaced B(z) with analytical form                                        
+// 5. Using exponentialted higher order term and gamma term in Fbar calculation 
+// ***by Chao Peng, Duke University, 11/8/2016                                  
 //========================REFERENCES============================================
 // MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
 //           Scattering                                                         
@@ -617,8 +628,11 @@ double CRadCorr::interp(const DataSet &set, const double &w)
         const DataPoint &p2 = set.data.at(j+1);
 
         double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
-        // unknown constant 0.00001 here, probably some protection for two same points
-        return _interp/(p2.v - p1.v);// + 0.00001);
+
+        // LATEST CHANGE: removed unknown constant 0.00001 here, 
+        // probably some protection for two same points
+        // return _interp/(p2.v - p1.v + 0.00001);
+        return _interp/(p2.v - p1.v);
     }
 
     // 3 point parabolic fit
@@ -653,9 +667,9 @@ inline void CRadCorr::spectrum_init(DataSet &set)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
-        // originally b(z) = 4./3., which is an approximated value regardless of
-        // Z dependence, it has about 2% difference with the value from Eq. A45
-        // in STEIN, thus b(z) is updated according to that equation.
+        // LATEST CHANGE: replaced b(z) = 4./3. with Eq. A45 from STEIN
+        // originally it was an approximated value regardless of Z dependence,
+        // ignoring it introducing an error on a few percent level.
         BTB = set.radl_before*Bz;
         BTA = set.radl_after*Bz;
         XIB = set.coll_before;

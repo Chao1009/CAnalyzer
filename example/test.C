@@ -164,7 +164,13 @@ void radcor_test()
     else
         cout << "OFF" << endl;
 
-    vector<string> file_list = {"exp_9deg.dat", "model_9deg.dat"};
+    cout << "Peaking Approximation is ";
+    if(rad_cor.GetConfig<bool>("Peaking Approximation"))
+        cout << "ON" << endl;
+    else
+        cout << "OFF" << endl;
+
+    vector<string> file_list = {"exp_6deg.dat", "model_6deg.dat"};
     rad_cor.ReadExpData(file_list);
 
     rad_cor.RadiativeCorrection();
