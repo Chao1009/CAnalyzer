@@ -10,27 +10,34 @@
 #include <cstring>
 #include <climits>
 #include <algorithm>
+#include <list>
 
 using namespace std;
 
+
+
 //============================================================================//
-// Config Parser                                                              //
+// Constructor, Destructor                                                    //
 //============================================================================//
 ConfigParser::ConfigParser(const string &s,
                            const string &w,
-                           const vector<string> &c,
-                           const pair<string, string> &p)
-: splitters(s), white_space(w), comment_marks(c), comment_pair(p),
-  line_number(0), in_comment_pair(false)
+                           const vector<string> &c)
+: splitters(s), white_space(w), comment_marks(c), line_number(0),
+  in_comment_pair(false)
 {
-    // place holder
+    comment_pair = std::make_pair("/*", "*/");
 }
 
 ConfigParser::~ConfigParser()
 {
-    CloseFile();
+    // place holder
 }
 
+//============================================================================//
+// Public Member Function                                                     //
+//============================================================================//
+
+// add comment mark
 void ConfigParser::AddCommentMark(const string &c)
 {
     auto it = find(comment_marks.begin(), comment_marks.end(), c);
@@ -38,6 +45,7 @@ void ConfigParser::AddCommentMark(const string &c)
         comment_marks.push_back(c);
 }
 
+// remove certain comment mark
 void ConfigParser::RemoveCommentMark(const string &c)
 {
     auto it = find(comment_marks.begin(), comment_marks.end(), c);
@@ -45,11 +53,13 @@ void ConfigParser::RemoveCommentMark(const string &c)
         comment_marks.erase(it);
 }
 
+// clear all comment marks
 void ConfigParser::EraseCommentMarks()
 {
     comment_marks.clear();
 }
 
+// open a file for future parsing
 bool ConfigParser::OpenFile(const string &path)
 {
     Clear();
@@ -59,6 +69,7 @@ bool ConfigParser::OpenFile(const string &path)
     return infile.is_open();
 }
 
+// read the whole file into a buffer and break it into lines
 bool ConfigParser::ReadFile(const string &path)
 {
     Clear();
@@ -82,6 +93,7 @@ bool ConfigParser::ReadFile(const string &path)
     return true;
 }
 
+// read a buffer and break it into lines
 void ConfigParser::ReadBuffer(const char *buf)
 {
     Clear();
@@ -92,6 +104,87 @@ void ConfigParser::ReadBuffer(const char *buf)
     buffer_process(buffer);
 }
 
+// clear stored lines
+void ConfigParser::Clear()
+{
+    line_number = 0;
+    infile.close();
+    queue<string>().swap(lines);
+}
+
+// close file
+void ConfigParser::CloseFile()
+{
+    infile.close();
+}
+
+// take a line
+string ConfigParser::TakeLine()
+{
+    if(lines.size()) {
+        string out = lines.front();
+        lines.pop();
+        return out;
+    }
+
+    return "";
+}
+
+// parse a line, take the line either from the opening file (if it is opened)
+// or from the stored lines
+// return false if empty
+bool ConfigParser::ParseLine()
+{
+    queue<string>().swap(elements);
+
+    if(infile.is_open())
+        return parse_file();
+    else
+        return parse_buffer();
+}
+
+// parse a input string (line)
+// trim the white space and split the string into elements by defined splitters
+// the elements will be further trimmed
+void ConfigParser::ParseLine(const string &line, const bool &count)
+{
+    if(count)
+        ++line_number;
+
+    string trim_line = trim(comment_out(line), white_space);
+
+    queue<string> eles = split(trim_line, splitters);
+
+    while(eles.size())
+    {
+        string ele = trim(eles.front(), white_space);
+        if(ele.size())
+            elements.push(ele);
+        eles.pop();
+    }
+}
+
+// take the first element
+ConfigValue ConfigParser::TakeFirst()
+{
+    if(elements.empty()) {
+        cout << "Config Parser: WARNING, trying to take elements while there is nothing, 0 value returned." << endl;
+        return ConfigValue("0");
+    }
+
+    string output = elements.front();
+    elements.pop();
+
+    return ConfigValue(output);
+}
+
+
+
+//============================================================================//
+// Private Member Function                                                    //
+//============================================================================//
+
+// process the read-in buffer
 void ConfigParser::buffer_process(string &buffer)
 {
     if(comment_pair.first.size() && comment_pair.second.size()) {
@@ -112,39 +205,8 @@ void ConfigParser::buffer_process(string &buffer)
     }
 }
 
-void ConfigParser::Clear()
-{
-    infile.close();
-    line_number = 0;
-    queue<string>().swap(lines);
-}
-
-void ConfigParser::CloseFile()
-{
-    infile.close();
-}
-
-string ConfigParser::TakeLine()
-{
-    if(lines.size()) {
-        string out = lines.front();
-        lines.pop();
-        return out;
-    }
-
-    return "";
-}
-
-bool ConfigParser::ParseLine()
-{
-    queue<string>().swap(elements);
-
-    if(infile.is_open())
-        return parse_file();
-    else
-        return parse_buffer();
-}
-
+// take a line from opened file and parse it
+// comment with comment pair will be removed here
 inline bool ConfigParser::parse_file()
 {
     // comment pair needs to be taken care here
@@ -157,26 +219,31 @@ inline bool ConfigParser::parse_file()
         if(comment_pair.first.empty() || comment_pair.second.empty()) {
             ParseLine(current_line);
         } else {
+            // if we had comment pair opened
             if(in_comment_pair) {
+                // see if there is an end to the comment pair
                 auto c_end = current_line.find(comment_pair.second);
                 if(c_end != string::npos) {
                     // end of a comment pair
                     ParseLine(current_line.substr(c_end + comment_pair.second.size()));
                     in_comment_pair = false;
-                    cout << current_line.substr(c_end + comment_pair.second.size()) << endl;
                 } else {
                     // still inside a comment pair
                     ParseLine("");
                 }
+            // if no previous comment pair opened
             } else {
-                // remove complete pair in one line
+                // remove complete comment pair in one line
                 while(comment_between(current_line, comment_pair.first, comment_pair.second))
                 {;}
+                // see if there is any comment pair opening
                 auto c_beg = current_line.find(comment_pair.first);
+                // find comment pair openning
                 if(c_beg != string::npos) {
                     ParseLine(current_line.substr(0, c_beg));
                     in_comment_pair = true;
                 } else {
+                    // no special treatment
                     ParseLine(current_line);
                 }
             }
@@ -186,6 +253,8 @@ inline bool ConfigParser::parse_file()
     return true;
 }
 
+// take a line from the stored lines buffer and parse it
+// comment by comment pair has been already removed before going into the lines
 inline bool ConfigParser::parse_buffer()
 {
     // comment pair has been taken care before breaking into lines,
@@ -202,49 +271,8 @@ inline bool ConfigParser::parse_buffer()
     return true; // parsed a line
 }
 
-void ConfigParser::ParseLine(const string &line)
-{
-    ++line_number;
-
-    string trim_line = trim(comment_out(line), white_space);
-
-    queue<string> eles = split(trim_line, splitters);
-
-    while(eles.size())
-    {
-        string ele = trim(eles.front(), white_space);
-        if(ele.size())
-            elements.push(ele);
-        eles.pop();
-    }
-}
-
-ConfigValue ConfigParser::TakeFirst()
-{
-    if(elements.empty()) {
-        cout << "Config Parser: WARNING, trying to take elements while there is nothing, 0 value returned." << endl;
-        return ConfigValue("0");
-    }
-
-    string output = elements.front();
-    elements.pop();
-
-    return ConfigValue(output);
-}
-
-vector<ConfigValue> ConfigParser::TakeAll()
-{
-    vector<ConfigValue> output;
-
-    while(elements.size())
-    {
-        output.emplace_back(elements.front());
-        elements.pop();
-    }
-
-    return output;
-}
-
+// comment out between pairs
+// return false if no pair found
 bool ConfigParser::comment_between(string &str, const string &open, const string &close)
 {
     auto begin = str.find(open);
@@ -259,6 +287,7 @@ bool ConfigParser::comment_between(string &str, const string &open, const string
     return false;
 }
 
+// comment out the characters with certain mark
 string ConfigParser::comment_out(const string &str, size_t index)
 {
     if(index >= comment_marks.size())
@@ -269,17 +298,23 @@ string ConfigParser::comment_out(const string &str, size_t index)
     }
 }
 
+
+
+//============================================================================//
+// Public Static Function                                                     //
+//============================================================================//
+
+// comment out the characters after comment mark
 string ConfigParser::comment_out(const string &str, const string &c)
 {
-    if(c.empty()) {
+    if(c.empty())
         return str;
-    }
 
     const auto commentBegin = str.find(c);
     return str.substr(0, commentBegin);
 }
 
-
+// trim all the characters defined as white space at both ends
 string ConfigParser::trim(const string &str, const string &w)
 {
 
@@ -294,6 +329,7 @@ string ConfigParser::trim(const string &str, const string &w)
     return str.substr(strBegin, strRange);
 }
 
+// split a string into several pieces by all the characters defined as splitter
 queue<string> ConfigParser::split(const string &str, const string &s)
 {
     queue<string> eles;
@@ -317,6 +353,7 @@ queue<string> ConfigParser::split(const string &str, const string &s)
     return eles;
 }
 
+// find the integer in a string
 int ConfigParser::find_integer(const string &str, const size_t &pos)
 {
     vector<int> integers = find_integers(str);
@@ -331,6 +368,7 @@ int ConfigParser::find_integer(const string &str, const size_t &pos)
     return integers.at(pos);
 }
 
+// find all the integers in a string
 vector<int> ConfigParser::find_integers(const string &str)
 {
     vector<int> result;
@@ -340,6 +378,7 @@ vector<int> ConfigParser::find_integers(const string &str)
     return result;
 }
 
+// helper function for finding a integer
 void ConfigParser::find_integer_helper(const string &str, vector<int> &result)
 {
    if(str.empty())
@@ -459,6 +498,7 @@ bool ConfigParser::strcmp_case_insensitive(const string &str1, const string &str
     return true;
 }
 
+// find pair position in a string
 vector<pair<int, int>> ConfigParser::find_pair(const string &str,
                                                const string &op,
                                                const string &cl)
@@ -524,8 +564,11 @@ vector<pair<int, int>> ConfigParser::find_pair(const string &str,
 
     return result;
 }
+
+
+
 //============================================================================//
-// trivial funcs                                                              //
+// trivial operators                                                          //
 //============================================================================//
 
 ConfigParser &operator >> (ConfigParser &c, string &v)
@@ -629,274 +672,3 @@ ConfigParser &operator >> (ConfigParser &c, ConfigValue &v)
     v = c.TakeFirst();
     return c;
 }
-
-//============================================================================//
-// Config Value                                                               //
-//============================================================================//
-ostream &operator << (ostream &os, const ConfigValue &b)
-{
-    return  os << b._value;
-};
-
-ConfigValue::ConfigValue(const string &value)
-: _value(value)
-{}
-
-ConfigValue::ConfigValue(const bool &value)
-{
-    if(value)
-        _value = "1";
-    else
-        _value = "0";
-}
-
-ConfigValue::ConfigValue(const int &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const long &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const long long &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const unsigned &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const unsigned long &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const unsigned long long &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const float &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const double &value)
-: _value(to_string(value))
-{}
-
-ConfigValue::ConfigValue(const long double &value)
-: _value(to_string(value))
-{}
-
-bool ConfigValue::Bool()
-const
-{
-    if((_value == "1") ||
-       (ConfigParser::strcmp_case_insensitive(_value, "T")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "True")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "Y")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "Yes")))
-        return true;
-
-    if((_value == "0") ||
-       (ConfigParser::strcmp_case_insensitive(_value, "F")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "False")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "N")) ||
-       (ConfigParser::strcmp_case_insensitive(_value, "No")))
-        return false;
-
-    cout << "Config Value: Failed to convert "
-         << _value << " to bool type. Return false."
-         << endl;
-    return false;
-}
-
-char ConfigValue::Char()
-const
-{
-    try {
-       int value = stoi(_value);
-       if(value > CHAR_MAX)
-           cout << "Config Value: Limit exceeded while converting "
-                << _value << " to char." << endl;
-       return (char) value;
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to char. 0 returned." << endl;
-             return 0;
-    }
-}
-
-unsigned char ConfigValue::UChar()
-const
-{
-    try {
-       unsigned long value = stoul(_value);
-       if(value > UCHAR_MAX)
-           cout << "Config Value: Limit exceeded while converting "
-                << _value << " to unsigned char." << endl;
-       return (unsigned char) value;
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to unsigned char. 0 returned." << endl;
-             return 0;
-    }
-}
-
-short ConfigValue::Short()
-const
-{
-    try {
-       int value = stoi(_value);
-       if(value > SHRT_MAX)
-           cout << "Config Value: Limit exceeded while converting "
-                << _value << " to short." << endl;
-       return (short) value;
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to short. 0 returned." << endl;
-             return 0;
-    }
-}
-
-unsigned short ConfigValue::UShort()
-const
-{
-    try {
-       unsigned long value = stoul(_value);
-       if(value > USHRT_MAX)
-           cout << "Config Value: Limit exceeded while converting "
-                << _value << " to unsigned short." << endl;
-       return (unsigned short) value;
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to unsigned short. 0 returned." << endl;
-             return 0;
-    }
-}
-
-int ConfigValue::Int()
-const
-{
-    try {
-       return stoi(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to int. 0 returned." << endl;
-             return 0;
-    }
-}
-
-unsigned int ConfigValue::UInt()
-const
-{
-    try {
-        return (unsigned int)stoul(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to unsigned int. 0 returned." << endl;
-             return 0;
-    }
-}
-
-long ConfigValue::Long()
-const
-{
-    try {
-        return stol(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to long. 0 returned." << endl;
-             return 0;
-    }
-}
-
-long long ConfigValue::LongLong()
-const
-{
-    try {
-        return stoll(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to long long. 0 returned." << endl;
-             return 0;
-    }
-}
-
-unsigned long ConfigValue::ULong()
-const
-{
-    try {
-        return stoul(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to unsigned long. 0 returned." << endl;
-             return 0;
-    }
-}
-
-unsigned long long ConfigValue::ULongLong()
-const
-{
-    try {
-        return stoull(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to unsigned long long. 0 returned." << endl;
-             return 0;
-    }
-}
-
-float ConfigValue::Float()
-const
-{
-    try {
-        return stof(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to float. 0 returned." << endl;
-             return 0;
-    }
-}
-
-double ConfigValue::Double()
-const
-{
-    try {
-        return stod(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to double. 0 returned." << endl;
-             return 0;
-    }
-}
-
-long double ConfigValue::LongDouble()
-const
-{
-    try {
-        return stold(_value);
-    } catch (exception &e) {
-        cerr << e.what() << endl;
-        cerr << "Config Value: Failed to convert "
-             << _value << " to long double. 0 returned." << endl;
-             return 0;
-    }
-}
-
-const char *ConfigValue::c_str()
-const
-{
-    return _value.c_str();
-}
-

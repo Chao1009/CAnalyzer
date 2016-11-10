@@ -50,7 +50,7 @@ void CAnalyzer::ReadData(const std::string &path,
             }
         }
 
-        auto row = c_parser.TakeAll();
+        auto row = c_parser.TakeAll<std::vector>();
 
         // check data taking criteria
         if(cri_col >= 0 &&

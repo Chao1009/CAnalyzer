@@ -3,16 +3,10 @@
 
 #include <string>
 #include <iostream>
-#include <sstream>
 #include <fstream>
 #include <vector>
 #include <queue>
-#include <list>
-#include <utility>
-#include <typeinfo>
-
-// config value class
-class ConfigValue;
+#include "ConfigValue.h"
 
 // config parser class
 class ConfigParser
@@ -20,9 +14,10 @@ class ConfigParser
 public:
     ConfigParser(const std::string &s = " ,\t",  // splitters
                  const std::string &w = " \t",  // white_space
-                 const std::vector<std::string> &c = {"#", "//"}, // comment_mark
-                 const std::pair<std::string, std::string> &p = std::make_pair("/*", "*/")); // comment_pair
+                 const std::vector<std::string> &c = {"#", "//"}); // comment_mark
     virtual ~ConfigParser();
+
+    // Set members
     void SetSplitters(const std::string &s) {splitters = s;};
     void SetWhiteSpace(const std::string &w) {white_space = w;};
     void SetCommentMarks(const std::vector<std::string> &c) {comment_marks = c;};
@@ -31,28 +26,82 @@ public:
     void RemoveCommentMark(const std::string &c);
     void EraseCommentMarks();
 
+    // source manipulation
     bool OpenFile(const std::string &path);
     bool ReadFile(const std::string &path);
     void ReadBuffer(const char *);
     void CloseFile();
     void Clear();
 
+    // parse line, return false if no more line to parse
     bool ParseLine();
-    void ParseLine(const std::string &line);
+    // parse a string as a line, by default it will count it into line_number
+    void ParseLine(const std::string &line, const bool &count = true);
 
+    // get current parsing status
     int NbofElements() const {return elements.size();};
     int LineNumber() const {return line_number;};
     const std::string &CurrentLine() const {return current_line;};
+
+    // take the lines/elements
     std::string TakeLine();
     ConfigValue TakeFirst();
-    std::vector<ConfigValue> TakeAll();
+    template<class BidirIt>
+    int Take(BidirIt first, BidirIt last)
+    {
+        int count = 0;
+        for(auto it = first; it != last; ++it, ++count)
+        {
+            if(elements.empty())
+                break;
 
+            *it = elements.front();
+            elements.pop();
+        }
+        return count;
+    }
+
+    template<template<class, class> class Container>
+    Container<ConfigValue, std::allocator<ConfigValue>> TakeAll()
+    {
+        Container<ConfigValue, std::allocator<ConfigValue>> res;
+        while(elements.size())
+        {
+            res.emplace_back(std::move(elements.front()));
+            elements.pop();
+        }
+        return res;
+    }
+
+    template<template<class, class> class Container, class T>
+    Container<T, std::allocator<T>> TakeAll()
+    {
+        Container<T, std::allocator<T>> res;
+        while(elements.size())
+        {
+            ConfigValue tmp(std::move(elements.front()));
+            elements.pop();
+            res.emplace_back(tmp.Convert<T>());
+        }
+        return res;
+    }
+
+    // get members
     const std::string &GetSplitters() const {return splitters;};
     const std::string &GetWhiteSpace() const {return white_space;};
     const std::vector<std::string> &GetCommentMarks() const {return comment_marks;};
     const std::pair<std::string, std::string> &GetCommentPair() const {return comment_pair;};
 
 private:
+    // private functions
+    void buffer_process(std::string &buffer);
+    bool parse_file();
+    bool parse_buffer();
+    std::string comment_out(const std::string &str, size_t index = 0);
+    bool comment_between(std::string &str, const std::string &open, const std::string &close);
+
+private:
+    // private members
     std::string splitters;
     std::string white_space;
     std::vector<std::string> comment_marks;
@@ -64,14 +113,8 @@ private:
     std::queue<std::string> elements;
     std::ifstream infile;
 
-private:
-    void buffer_process(std::string &buffer);
-    bool parse_file();
-    bool parse_buffer();
-    std::string comment_out(const std::string &str, size_t index = 0);
-    bool comment_between(std::string &str, const std::string &open, const std::string &close);
-
 public:
+    // static functions
     static std::string comment_out(const std::string &str, const std::string &c);
     static std::string trim(const std::string &str, const std::string &w);
     static std::queue<std::string> split(const std::string &str, const std::string &s);
@@ -105,125 +148,5 @@ ConfigParser &operator >> (ConfigParser &c, double &v);
 ConfigParser &operator >> (ConfigParser &c, long double &v);
 ConfigParser &operator >> (ConfigParser &c, const char *&v);
 ConfigParser &operator >> (ConfigParser &c, ConfigValue &v);
-
-// demangle type name
-#ifdef __GNUG__
-#include <cstdlib>
-#include <memory>
-#include <cxxabi.h>
-// gnu compiler needs to demangle type info
-static std::string demangle(const char* name)
-{
-
-    int status = 0;
-
-    //enable c++11 by passing the flag -std=c++11 to g++
-    std::unique_ptr<char, void(*)(void*)> res {
-        abi::__cxa_demangle(name, NULL, NULL, &status),
-        std::free
-    };
-
-    return (status==0) ? res.get() : name ;
-}
-#else
-// do nothing if not gnu compiler
-static std::string demangle(const char* name)
-{
-    return name;
-}
-#endif
-
-// this helps template specialization in class
-template <typename T>
-struct __cv_identifier { typedef T type; };
-
-class ConfigValue
-{
-public:
-    std::string _value;
-
-    ConfigValue() {};
-
-    ConfigValue(const std::string &value);
-    ConfigValue(const bool &value);
-    ConfigValue(const int &value);
-    ConfigValue(const long &value);
-    ConfigValue(const long long &value);
-    ConfigValue(const unsigned &value);
-    ConfigValue(const unsigned long &value);
-    ConfigValue(const unsigned long long &value);
-    ConfigValue(const float &value);
-    ConfigValue(const double &value);
-    ConfigValue(const long double &value);
-
-    template<typename T>
-    T Convert()
-    const
-    {
-        return convert( __cv_identifier<T>());
-    };
-
-    bool Bool() const;
-    char Char() const;
-    unsigned char UChar() const;
-    short Short() const;
-    unsigned short UShort() const;
-    int Int() const;
-    unsigned int UInt() const;
-    long Long() const;
-    long long LongLong() const;
-    unsigned long ULong() const;
-    unsigned long long ULongLong() const;
-    float Float() const;
-    double Double() const;
-    long double LongDouble() const;
-    const char *c_str() const;
-    std::string String() const {return _value;};
-    bool IsEmpty() const {return _value.empty();};
-
-    operator std::string() const
-    {
-        return _value;
-    };
-
-    bool operator ==(const std::string &rhs) const
-    {
-        return _value == rhs;
-    }
-
-private:
-    template<typename T>
-    T convert(__cv_identifier<T> &&)
-    const
-    {
-        std::stringstream iss(_value);
-        T _cvalue;
-
-        if(!(iss >> _cvalue)) {
-            std::cerr << "Config Value Warning: Undefined value returned, failed to convert "
-                      <<  _value
-                      << " to "
-                      << demangle(typeid(T).name())
-                      << std::endl;
-        }
-
-        return _cvalue;
-    }
-
-    bool convert(__cv_identifier<bool> &&)
-    const
-    {
-        return (*this).Bool();
-    }
-
-    std::string convert(__cv_identifier<std::string> &&)
-    const
-    {
-        return (*this)._value;
-    }
-};
-
-// show string content of the config value to ostream
-std::ostream &operator << (std::ostream &os, const ConfigValue &b);
 
 #endif

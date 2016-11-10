@@ -44,9 +44,9 @@ void CEstimator::LoadFormula(const std::string &path)
     // glue all the parts together
     // since there probably is space in the function expression
     // which can be used as the splitter for parameters
-    for(auto &ele : c_parser.TakeAll())
+    for(auto &ele : c_parser.TakeAll<std::vector, std::string>())
     {
-        function += ele.String();
+        function += ele;
     }
 
     SetFormula(function.c_str());

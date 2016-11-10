@@ -37,7 +37,7 @@ void fit_test()
     }
 
     // fit data
-    estimator.Fit(5, 5);
+    estimator.Fit();
 
     // save the optimized parameters
     estimator.SaveFormula("fit_par_1147.dat");
