@@ -5,6 +5,7 @@
 #include <algorithm>
 
 
+// definition of some constants
 #define ALPHA 7.297352568E-3    // 1./137.03599911
 #define PI 3.1415926535897932   // pi
 #define RADDEG 57.2957795131    // rad to degree
@@ -28,26 +29,39 @@ CRadCorr::~CRadCorr()
 // configuration
 void CRadCorr::Configure(const std::string &path)
 {
+    // the configuration value is supposed to be provided in config file
+    // if the term is not included in configuration file, it will use the
+    // default value
     readConfigFile(path);
 
+    // get configuration value from the file
+    // functions
     internal_RC = getConfig<bool>("Internal RC", true);
     external_RC = getConfig<bool>("External RC", true);
-    user_defined_XI = getConfig<bool>("User Defined XI", false);
-    peak_approx = getConfig<bool>("Peaking Approximation", true);
+    user_defined_XI = getConfig<bool>("User Defined XI", true);
+    peak_approx = getConfig<bool>("Peaking Approximation", false);
 
+    // calculation related
     iter_prec = getConfig<double>("Iteration Precision", 0.005);
     n_sim = getConfig<int>("Min Number of Simpson Bins", 10000);
     sim_step = getConfig<double>("Simpson Step Size", 0.1);
+    // for non-peaking-approximation only
+    // 2d integral is much slower than 1d, thus configure the step carefully
     n_sim_2d = getConfig<int>("Min 2D Simpson Bins", 100);
     sim_step_2d = getConfig<double>("2D Simpson Step Size", 1.);
 
+    // data related
     delta = getConfig<double>("IR DIV Delta", 10);
+    // for non-peaking-approximation only
     delta1 = getConfig<double>("Delta1", 5);
     delta2 = getConfig<double>("Delta2", 5);
+    // target
     target_Z = getConfig<double>("Target Z", 2);
     target_A = getConfig<double>("Target A", 3.0149322473);
+    // scattering angle
     angle = getConfig<double>("Scattering Angle", 6.1);
 
+    // calculate values based on the input configuration
     // common value for all spectrums
     angle /= RADDEG;
     target_M = target_A * AMUMEV;
@@ -66,21 +80,33 @@ void CRadCorr::Configure(const std::string &path)
     Bz /= log(183.*std::pow(target_Z, -1./3.));
     Bz = 4./3.*(1. + Bz);
 
+    // read data files
+    std::string file_str = getConfig<std::string>("Data File");
+    auto files = ConfigParser::split(file_str, ",");
+
+    std::vector<std::string> flist;
+    while(files.size())
+    {
+        flist.push_back(ConfigParser::trim(files.front(), " \t"));
+        files.pop();
+    }
+    if(!flist.empty())
+        ReadExpData(flist);
 }
 
 // read one data file, see comments in readData() for format details
 void CRadCorr::ReadExpData(const char *path)
 {
-    std::vector<std::string> list;
-    list.emplace_back(path);
-    ReadExpData(list);
+    std::vector<std::string> flist;
+    flist.emplace_back(path);
+    ReadExpData(flist);
 }
 
 void CRadCorr::ReadExpData(const std::string &path)
 {
-    std::vector<std::string> list;
-    list.push_back(path);
-    ReadExpData(list);
+    std::vector<std::string> flist;
+    flist.push_back(path);
+    ReadExpData(flist);
 }
 
 // read several data files
@@ -112,10 +138,20 @@ void CRadCorr::ReadExpData(const std::vector<std::string> &file_list)
                   return set1.energy < set2.energy;
               });
 
+    // sort data points by nu
+    for(auto &s : data_sets)
+    {
+        std::sort(s.data.begin(), s.data.end(),
+                  [] (const DataPoint &p1, const DataPoint &p2)
+                  {
+                    return p1.nu < p2.nu;
+                  });
+    }
+
     // calculate collision thickness if not using users' input
     if(!user_defined_XI) {
-        for(auto &set : data_sets)
-            calculateXI(set);
+        for(auto &s : data_sets)
+            calculateXI(s);
     }
 
     std::cout << "Read " << data_sets.size() << " data sets."
@@ -130,6 +166,7 @@ void CRadCorr::ReadExpData(const std::vector<std::string> &file_list)
 
 }
 
+// test some configuration values, warn some simple mistake
 bool CRadCorr::SanityCheck()
 {
     if(!internal_RC && !external_RC) {
@@ -159,13 +196,13 @@ bool CRadCorr::SanityCheck()
         return false;
     }
 
-    if(sim_step < 0) {
+    if(sim_step <= 0 || sim_step_2d <= 0) {
         std::cout << "Simpson integration step size must be > 0"
                   << std::endl;
         return false;
     }
 
-    if(delta < 0) {
+    if(delta <= 0 || delta1 <= 0 || delta2 <= 0) {
         std::cout << "Delta must be > 0 MeV"
                   << std::endl;
         return false;
@@ -174,6 +211,10 @@ bool CRadCorr::SanityCheck()
     return true;
 }
 
+// do radiative correction on data sets
+// if iteration number is provided and > 0, it will do iterations by the input
+// number
+// if else, it will do iterations until the result diff. reached the iter_prec
 void CRadCorr::RadiativeCorrection(int iters)
 {
     if(!SanityCheck())
@@ -185,25 +226,27 @@ void CRadCorr::RadiativeCorrection(int iters)
         iterByPrecision();
 }
 
+// radiate data sets
 void CRadCorr::Radiate()
 {
     if(!SanityCheck())
         return;
 
-    for(auto &set : data_sets)
+    for(auto &s : data_sets)
     {
-        if(set.non_rad)
+        if(s.non_rad)
             continue;
 
-        std::cout << "Radiate, spectrum energy: " << set.energy << std::endl;
+        std::cout << "Radiate, spectrum energy: " << s.energy << std::endl;
 
         if(peak_approx)
-            radcor(set);
+            radcor(s);
         else
-            xyrad2d(set);
+            xyrad2d(s);
     }
 }
 
+// save result to the path
 void CRadCorr::SaveResult(const std::string &path)
 {
     std::ofstream output(path);
@@ -254,19 +297,19 @@ void CRadCorr::iterByNumbers(int iters)
 {
     for(int i = 1; i <= iters; ++i)
     {
-        for(auto &set : data_sets)
+        for(auto &s : data_sets)
         {
             // do nothing for non-radiated data
-            if(set.non_rad)
+            if(s.non_rad)
                 continue;
 
             std::cout << "RC iteration: " << i << " of " << iters
-                      << ", spectrum E = " << set.energy
+                      << ", spectrum E = " << s.energy
                       << std::endl;
             if(peak_approx)
-                radcor(set);
+                radcor(s);
             else
-                xyrad2d(set);
+                xyrad2d(s);
         }
     }
 }
@@ -279,26 +322,26 @@ void CRadCorr::iterByPrecision()
 
     while(iter)
     {
-        for(auto &set : data_sets)
+        for(auto &s : data_sets)
         {
             // do nothing for non-radiated data
-            if(set.non_rad)
+            if(s.non_rad)
                 continue;
 
             std::cout << "RC iteration: " << i
-                      << ", spectrum E = " << set.energy
+                      << ", spectrum E = " << s.energy
                       << std::endl;
             if(peak_approx)
-                radcor(set);
+                radcor(s);
             else
-                xyrad2d(set);
+                xyrad2d(s);
         }
 
         // after correction, check if this iteration reaches the precision
         iter = false;
-        for(auto &set : data_sets)
+        for(auto &s : data_sets)
         {
-            for(auto point : set.data)
+            for(auto point : s.data)
             {
                 double rel_diff = (point.born - point.last)/point.born;
                 // the rel. diff. comes from this iteration is larger than wanted
@@ -366,12 +409,12 @@ void CRadCorr::iterByPrecision()
 //           Phys. Rev. D 5, 528 - 544 (Feb. 1972)                              
 //           http://link.aps.org/abstract/PRD/v5/p528                           
 //==============================================================================
-void CRadCorr::radcor(DataSet &set, bool radiate)
+void CRadCorr::radcor(DataSet &s, bool radiate)
 {
-    spectrum_init(set);
+    spectrum_init(s);
 
     // iteration on data points
-    for(auto &point : set.data)
+    for(auto &point : s.data)
     {
         point_init(point);
 
@@ -407,12 +450,12 @@ void CRadCorr::radcor(DataSet &set, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = SIGLOW*set.weight_mott*point.born + SIGBEF + SIGAFT;
+            point.rad = SIGLOW*s.weight_mott*point.born + SIGBEF + SIGAFT;
         } else {
             // save last iteration
             point.last = point.born;
             // radiative correction, update the born cross section
-            point.born = (point.rad - (SIGBEF+SIGAFT)/set.weight_mott)/SIGLOW;
+            point.born = (point.rad - (SIGBEF+SIGAFT)/s.weight_mott)/SIGLOW;
         }
     }
 }
@@ -470,12 +513,12 @@ double CRadCorr::fep(const double &Epx)
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
 //==============================================================================
-void CRadCorr::xyrad2d(DataSet &set, bool radiate)
+void CRadCorr::xyrad2d(DataSet &s, bool radiate)
 {
-    spectrum_init(set);
+    spectrum_init(s);
 
     // iteration on data points
-    for(auto &point : set.data)
+    for(auto &point : s.data)
     {
         point_init(point);
 
@@ -509,12 +552,12 @@ void CRadCorr::xyrad2d(DataSet &set, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = sgl_both*set.weight_mott*point.born + sgl_Es + sgl_Ep + int_2d;
+            point.rad = sgl_both*s.weight_mott*point.born + sgl_Es + sgl_Ep + int_2d;
         } else {
             // save last iteration
             point.last = point.born;
             // radiative correction, update the born cross section
-            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/set.weight_mott)/sgl_both;
+            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/s.weight_mott)/sgl_both;
         }
     }
 
@@ -610,22 +653,22 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
         return mid;
 }
 
-double CRadCorr::interp(const DataSet &set, const double &w)
+double CRadCorr::interp(const DataSet &s, const double &w)
 {
     // exceeds the boundary
-    if(w < set.data.front().v)
+    if(w < s.data.front().v)
         return 0.;
-    if(w >= set.data.back().v)
-        return set.data.back().born;
+    if(w >= s.data.back().v)
+        return s.data.back().born;
 
-    int j = __rc_binary_search(&set.data[0], w, 0, set.data.size());
+    int j = __rc_binary_search(&s.data[0], w, 0, s.data.size());
     if(j < 0)
         return 0;
 
     // do 2 points interpolation
     if(j <= 1) {
-        const DataPoint &p1 = set.data.at(j);
-        const DataPoint &p2 = set.data.at(j+1);
+        const DataPoint &p1 = s.data.at(j);
+        const DataPoint &p2 = s.data.at(j+1);
 
         double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
 
@@ -636,9 +679,9 @@ double CRadCorr::interp(const DataSet &set, const double &w)
     }
 
     // 3 point parabolic fit
-    const DataPoint &p1 = set.data.at(j-1);
-    const DataPoint &p2 = set.data.at(j);
-    const DataPoint &p3 = set.data.at(j+1);
+    const DataPoint &p1 = s.data.at(j-1);
+    const DataPoint &p2 = s.data.at(j);
+    const DataPoint &p3 = s.data.at(j+1);
     double x, xp, xm, a, b, c;
     x = w - p2.v;
     xp = p3.v - p2.v;
@@ -651,29 +694,29 @@ double CRadCorr::interp(const DataSet &set, const double &w)
 }
 
 // calculate XI based on STEIN's formula
-void CRadCorr::calculateXI(DataSet &set)
+void CRadCorr::calculateXI(DataSet &s)
 {
     // formula from STEIN, but old and probably wrong estimation
-    double xi = (PI*ELECM/2/ALPHA)*(set.radl_before + set.radl_after);
+    double xi = (PI*ELECM/2/ALPHA)*(s.radl_before + s.radl_after);
     xi /= (target_Z + __eta(target_Z));
     xi /= log(183*std::pow(target_Z, -1./3.));
 
-    set.coll_before = xi/2;
-    set.coll_after = xi/2;
+    s.coll_before = xi/2;
+    s.coll_after = xi/2;
 }
 
 // spectrum based kinematics intialization
-inline void CRadCorr::spectrum_init(DataSet &set)
+inline void CRadCorr::spectrum_init(DataSet &s)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
         // LATEST CHANGE: replaced b(z) = 4./3. with Eq. A45 from STEIN
         // originally it was an approximated value regardless of Z dependence,
         // ignoring it introducing an error on a few percent level.
-        BTB = set.radl_before*Bz;
-        BTA = set.radl_after*Bz;
-        XIB = set.coll_before;
-        XIA = set.coll_after;
+        BTB = s.radl_before*Bz;
+        BTA = s.radl_after*Bz;
+        XIB = s.coll_before;
+        XIA = s.coll_after;
     } else {
         BTB = 0;
         BTA = 0;
@@ -681,7 +724,7 @@ inline void CRadCorr::spectrum_init(DataSet &set)
         XIA = 0;
     }
 
-    Es = set.energy;
+    Es = s.energy;
     // improvements by J. Singh
     // two gamma function normalization so
     // 1/gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
@@ -824,18 +867,18 @@ void CRadCorr::readData(ConfigParser &c_parser)
                 continue;
             }
 
-            DataSet &set = data_sets.at(set_idx);
+            DataSet &s = data_sets.at(set_idx);
 
             c_parser >> nu >> cxsn >> stat >> syst;
             // apply normalization
-            cxsn *= set.normalization/set.weight_mott;
-            stat *= set.normalization;
+            cxsn *= s.normalization/s.weight_mott;
+            stat *= s.normalization;
             DataPoint new_point(nu, cxsn, stat, syst);
             // calculate ep
-            new_point.Ep = set.energy - nu;
-            new_point.v = nu/set.energy;
+            new_point.Ep = s.energy - nu;
+            new_point.v = nu/s.energy;
 
-            set.data.push_back(std::move(new_point));
+            s.data.push_back(std::move(new_point));
 
         } else if(c_parser.NbofElements() == 1) { // data set indication
 

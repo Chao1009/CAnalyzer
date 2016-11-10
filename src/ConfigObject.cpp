@@ -16,7 +16,7 @@
 
 // constructor
 ConfigObject::ConfigObject(const std::string &splitter, const std::string &ignore)
-: split_chars(splitter), ignore_chars(ignore), __empty_value("0")
+: split_chars(splitter), ignore_chars(ignore), __empty_value("")
 {
     // place holder
 }
@@ -99,10 +99,8 @@ void ConfigObject::readConfigFile(const std::string &path)
         std::string var_name, key;
         ConfigValue var_value;
         c_parser >> var_name >> var_value;
-
         // convert to lower case and remove uninterested characters
         key = ConfigParser::str_lower(ConfigParser::str_remove(var_name, ignore_chars));
-
         config_map[key] = var_value;
     }
 }
@@ -117,6 +115,9 @@ ConfigValue ConfigObject::getConfigValue(const std::string &name,
     auto it = config_map.find(key);
     if(it == config_map.end())
     {
+        if(def_value.IsEmpty())
+            return __empty_value;
+
         if(verbose) {
             std::cout << name << " (key: " << key << ")"
                       << " not defined in configuration file, set to default value "

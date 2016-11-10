@@ -170,9 +170,6 @@ void radcor_test()
     else
         cout << "OFF" << endl;
 
-    vector<string> file_list = {"exp_6deg.dat", "model_6deg.dat"};
-    rad_cor.ReadExpData(file_list);
-
     rad_cor.RadiativeCorrection();
     rad_cor.SaveResult("radcor_out.dat");
 }

@@ -42,6 +42,12 @@ protected:
         return getConfigValue(var_name, ConfigValue(val), verbose).Convert<T>();
     }
 
+    template<typename T>
+    T getConfig(const std::string &var_name)
+    {
+        return getConfigValue(var_name, ConfigValue(""), false).Convert<T>();
+    }
+
 protected:
     std::string split_chars;
     std::string ignore_chars;

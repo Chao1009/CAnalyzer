@@ -215,6 +215,12 @@ private:
     {
         return (*this).Bool();
     }
+
+    std::string convert(__cv_identifier<std::string> &&)
+    const
+    {
+        return (*this)._value;
+    }
 };
 
 // show string content of the config value to ostream
