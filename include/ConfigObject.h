@@ -10,11 +10,13 @@
 class ConfigObject
 {
 public:
+    // constructor, desctructor
     ConfigObject(const std::string &spliiter = ":=",
                  const std::string &ignore = " _\t");
 
     virtual ~ConfigObject();
 
+    // public member functions
     void ClearConfig();
     void SaveConfig(const std::string &path = "") const;
     void ListKeys() const;
@@ -28,6 +30,7 @@ public:
         replace_pair = std::make_pair(open, close);
     }
 
+    // get members
     ConfigValue GetConfigValue(const std::string &var_name) const;
     const std::string &GetConfigPath() const {return config_path;};
     const std::string &GetSplitChars() const {return split_chars;};
@@ -46,23 +49,18 @@ public:
     virtual void Configure(const std::string &path = "");
 
 protected:
+    // protected member functions
     void readConfigFile(const std::string &path);
     ConfigValue form(const std::string &input,
                      const std::string &open = "{",
                      const std::string &close = "}") const;
-    ConfigValue getConfigValue(const std::string &var_name,
-                               const ConfigValue &def_value,
-                               bool verbose = true);
+    ConfigValue getDefConfig(const std::string &var_name,
+                             const ConfigValue &def_value,
+                             bool verbose = true);
     template<typename T>
-    T getConfig(const std::string &var_name, const T &val, bool verbose = true)
+    T getDefConfig(const std::string &var_name, const T &val, bool verbose = true)
     {
-        return getConfigValue(var_name, ConfigValue(val), verbose).Convert<T>();
-    }
-
-    template<typename T>
-    T getConfig(const std::string &var_name)
-    {
-        return getConfigValue(var_name, ConfigValue(""), false).Convert<T>();
+        return getDefConfig(var_name, ConfigValue(val), verbose).Convert<T>();
     }
 
 protected:

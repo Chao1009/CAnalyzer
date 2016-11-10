@@ -14,6 +14,11 @@
 #include "ConfigObject.h"
 
 
+
+//============================================================================//
+// Constructor, Destructor                                                    //
+//============================================================================//
+
 // constructor
 ConfigObject::ConfigObject(const std::string &splitter,
                            const std::string &ignore)
@@ -29,18 +34,25 @@ ConfigObject::~ConfigObject()
     // place holder
 }
 
+
+//============================================================================//
+// Public Member Function                                                     //
+//============================================================================//
+
 // configure the cluster method
 void ConfigObject::Configure(const std::string & /*path*/)
 {
     // to be overloaded
 }
 
+// clear all the loaded configuration values
 void ConfigObject::ClearConfig()
 {
     config_path = "";
     config_map.clear();
 }
 
+// check if a certain term is configured
 bool ConfigObject::HasKey(const std::string &var_name)
 const
 {
@@ -50,6 +62,7 @@ const
     return false;
 }
 
+// list all the existing configuration keys
 void ConfigObject::ListKeys()
 const
 {
@@ -59,6 +72,7 @@ const
     }
 }
 
+// get all the existing configuration keys
 std::vector<std::string> ConfigObject::GetKeyList()
 const
 {
@@ -70,6 +84,7 @@ const
     return res;
 }
 
+// save current configuration into a file
 void ConfigObject::SaveConfig(const std::string &path)
 const
 {
@@ -78,7 +93,7 @@ const
     if(path.empty())
         save_path = config_path;
     if(save_path.empty())
-        save_path = "new.conf";
+        save_path = "latest.conf";
 
     std::ofstream save(save_path);
     for(auto &it : config_map)
@@ -90,6 +105,7 @@ const
     }
 }
 
+// get configuration value by its name/key
 ConfigValue ConfigObject::GetConfigValue(const std::string &var_name)
 const
 {
@@ -103,6 +119,7 @@ const
         return form(it->second, replace_pair.first, replace_pair.second);
 }
 
+// set configuration value by its name/key
 void ConfigObject::SetConfigValue(const std::string &var_name, const ConfigValue &c_value)
 {
     // convert to lower case and remove uninterested characters
@@ -110,6 +127,12 @@ void ConfigObject::SetConfigValue(const std::string &var_name, const ConfigValue
 
     config_map[key] = c_value;
 }
+
+
+
+//============================================================================//
+// Protected Member Function                                                  //
+//============================================================================//
 
 // read configuration file and build the configuration map
 void ConfigObject::readConfigFile(const std::string &path)
@@ -145,9 +168,9 @@ void ConfigObject::readConfigFile(const std::string &path)
 }
 
 // get configuration value from the map
-ConfigValue ConfigObject::getConfigValue(const std::string &name,
-                                         const ConfigValue &def_value,
-                                         bool verbose)
+ConfigValue ConfigObject::getDefConfig(const std::string &name,
+                                       const ConfigValue &def_value,
+                                       bool verbose)
 {
     std::string key = ConfigParser::str_lower(ConfigParser::str_remove(name, ignore_chars));
 
@@ -170,6 +193,7 @@ ConfigValue ConfigObject::getConfigValue(const std::string &name,
     return form(it->second, replace_pair.first, replace_pair.second);
 }
 
+// replace the contents inside replace_pair with the configuration value
 ConfigValue ConfigObject::form(const std::string &input,
                                const std::string &op,
                                const std::string &cl)

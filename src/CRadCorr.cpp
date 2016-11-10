@@ -36,30 +36,30 @@ void CRadCorr::Configure(const std::string &path)
 
     // get configuration value from the file
     // functions
-    internal_RC = getConfig<bool>("Internal RC", true);
-    external_RC = getConfig<bool>("External RC", true);
-    user_defined_XI = getConfig<bool>("User Defined XI", true);
-    peak_approx = getConfig<bool>("Peaking Approximation", false);
+    internal_RC = getDefConfig<bool>("Internal RC", true);
+    external_RC = getDefConfig<bool>("External RC", true);
+    user_defined_XI = getDefConfig<bool>("User Defined XI", true);
+    peak_approx = getDefConfig<bool>("Peaking Approximation", false);
 
     // calculation related
-    iter_prec = getConfig<double>("Iteration Precision", 0.005);
-    n_sim = getConfig<int>("Min Number of Simpson Bins", 10000);
-    sim_step = getConfig<double>("Simpson Step Size", 0.1);
+    iter_prec = getDefConfig<double>("Iteration Precision", 0.005);
+    n_sim = getDefConfig<int>("Min Number of Simpson Bins", 10000);
+    sim_step = getDefConfig<double>("Simpson Step Size", 0.1);
     // for non-peaking-approximation only
     // 2d integral is much slower than 1d, thus configure the step carefully
-    n_sim_2d = getConfig<int>("Min 2D Simpson Bins", 100);
-    sim_step_2d = getConfig<double>("2D Simpson Step Size", 1.);
+    n_sim_2d = getDefConfig<int>("Min 2D Simpson Bins", 100);
+    sim_step_2d = getDefConfig<double>("2D Simpson Step Size", 1.);
 
     // data related
-    delta = getConfig<double>("IR DIV Delta", 10);
+    delta = getDefConfig<double>("IR DIV Delta", 10);
     // for non-peaking-approximation only
-    delta1 = getConfig<double>("Delta1", 5);
-    delta2 = getConfig<double>("Delta2", 5);
+    delta1 = getDefConfig<double>("Delta1", 5);
+    delta2 = getDefConfig<double>("Delta2", 5);
     // target
-    target_Z = getConfig<double>("Target Z", 2);
-    target_A = getConfig<double>("Target A", 3.0149322473);
+    target_Z = getDefConfig<double>("Target Z", 2);
+    target_A = getDefConfig<double>("Target A", 3.0149322473);
     // scattering angle
-    angle = getConfig<double>("Scattering Angle", 6.1);
+    angle = getDefConfig<double>("Scattering Angle", 6.1);
 
     // calculate values based on the input configuration
     // common value for all spectrums
@@ -81,7 +81,7 @@ void CRadCorr::Configure(const std::string &path)
     Bz = 4./3.*(1. + Bz);
 
     // read data files
-    std::string file_str = getConfig<std::string>("Data File");
+    std::string file_str = GetConfig<std::string>("Data File");
     auto files = ConfigParser::split(file_str, ",");
 
     std::vector<std::string> flist;
