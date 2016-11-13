@@ -39,6 +39,7 @@ public:
     void ParseLine(const std::string &line, const bool &count = true);
 
     // get current parsing status
+    bool CheckElements(int num, int optional = 0);
     int NbofElements() const {return elements.size();};
     int LineNumber() const {return line_number;};
     const std::string &CurrentLine() const {return current_line;};
@@ -46,6 +47,13 @@ public:
     // take the lines/elements
     std::string TakeLine();
     ConfigValue TakeFirst();
+    template<typename T>
+    ConfigParser &operator >>(T &t)
+    {
+        t = (*this).TakeFirst().Convert<T>();
+        return *this;
+    }
+
     template<class BidirIt>
     int Take(BidirIt first, BidirIt last)
     {
@@ -122,31 +130,16 @@ public:
     static std::string str_replace(const std::string &str, const std::string &ignore, const char &rc = ' ');
     static std::string str_lower(const std::string &str);
     static std::string str_upper(const std::string &str);
-    static std::vector<std::pair<int, int>> find_pair(const std::string &str,
-                                                      const std::string &open,
-                                                      const std::string &close);
+    static bool find_pair(const std::string &str,
+                          const std::string &open, const std::string &close,
+                          int &open_pos, int &close_pos);
+    static std::vector<std::pair<int, int>> find_pairs(const std::string &str,
+                                                       const std::string &open,
+                                                       const std::string &close);
     static bool strcmp_case_insensitive(const std::string &str1, const std::string &str2);
     static int find_integer(const std::string &str, const size_t &pos = 0);
     static std::vector<int> find_integers(const std::string &str);
     static void find_integer_helper(const std::string &str, std::vector<int> &result);
 };
-
-ConfigParser &operator >> (ConfigParser &c, bool &v);
-ConfigParser &operator >> (ConfigParser &c, std::string &v);
-ConfigParser &operator >> (ConfigParser &c, char &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned char &v);
-ConfigParser &operator >> (ConfigParser &c, short &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned short &v);
-ConfigParser &operator >> (ConfigParser &c, int &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned int &v);
-ConfigParser &operator >> (ConfigParser &c, long &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned long &v);
-ConfigParser &operator >> (ConfigParser &c, long long &v);
-ConfigParser &operator >> (ConfigParser &c, unsigned long long &v);
-ConfigParser &operator >> (ConfigParser &c, float &v);
-ConfigParser &operator >> (ConfigParser &c, double &v);
-ConfigParser &operator >> (ConfigParser &c, long double &v);
-ConfigParser &operator >> (ConfigParser &c, const char *&v);
-ConfigParser &operator >> (ConfigParser &c, ConfigValue &v);
 
 #endif

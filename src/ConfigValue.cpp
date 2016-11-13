@@ -26,6 +26,10 @@ ConfigValue::ConfigValue(string &&value)
 : _value(move(value))
 {}
 
+ConfigValue::ConfigValue(const char *value)
+: _value(value)
+{}
+
 ConfigValue::ConfigValue(const bool &value)
 {
     if(value)

@@ -40,9 +40,10 @@ ConfigObject::~ConfigObject()
 //============================================================================//
 
 // configure the cluster method
-void ConfigObject::Configure(const std::string & /*path*/)
+void ConfigObject::Configure(const std::string &path)
 {
-    // to be overloaded
+    // only read configuration file in
+    readConfigFile(path);
 }
 
 // clear all the loaded configuration values
@@ -135,15 +136,15 @@ void ConfigObject::SetConfigValue(const std::string &var_name, const ConfigValue
 //============================================================================//
 
 // read configuration file and build the configuration map
-void ConfigObject::readConfigFile(const std::string &path)
+bool ConfigObject::readConfigFile(const std::string &path)
 {
     ConfigParser c_parser(split_chars); // self-defined splitters
 
     if(!c_parser.ReadFile(path)) {
-        std::cerr << "PRad HyCal Cluster Error: Cannot open file "
+        std::cerr << "Cannot open configuration file "
                   << "\"" << path << "\""
                   << std::endl;
-        return;
+        return false;
     }
 
     // save the path
@@ -165,9 +166,11 @@ void ConfigObject::readConfigFile(const std::string &path)
         key = ConfigParser::str_lower(ConfigParser::str_remove(var_name, ignore_chars));
         config_map[key] = var_value;
     }
+    return true;
 }
 
 // get configuration value from the map
+// if no such config value exists, it will fill the default value in
 ConfigValue ConfigObject::getDefConfig(const std::string &name,
                                        const ConfigValue &def_value,
                                        bool verbose)
@@ -199,18 +202,18 @@ ConfigValue ConfigObject::form(const std::string &input,
                                const std::string &cl)
 const
 {
-    ConfigValue res(input);
+    std::string result = input;
+    int pos1, pos2;
 
-    auto pairs = ConfigParser::find_pair(res._value, op, cl);
-
-    for(auto &pair : pairs)
+    while(ConfigParser::find_pair(result, op, cl, pos1, pos2))
     {
-        int beg_pos = pair.first + op.size();
-        int end_pos = pair.second - cl.size();
-        int size = end_pos - beg_pos + 1;
-        ConfigValue val = GetConfigValue(res._value.substr(beg_pos, size));
-        res._value.replace(pair.first, pair.second - pair.first + 1, val.c_str());
+        size_t beg = pos1 + op.size();
+        size_t end = pos2 - cl.size();
+        size_t size = end - beg + 1;
+
+        ConfigValue val = GetConfigValue(result.substr(beg, size));
+        result.replace(pos1, pos2 - pos1 + 1, val.c_str());
     }
 
-    return res;
+    return ConfigValue(std::move(result));
 }

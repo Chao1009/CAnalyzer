@@ -50,7 +50,7 @@ public:
 
 protected:
     // protected member functions
-    void readConfigFile(const std::string &path);
+    bool readConfigFile(const std::string &path);
     ConfigValue form(const std::string &input,
                      const std::string &open = "{",
                      const std::string &close = "}") const;
