@@ -71,7 +71,7 @@ protected:
     std::unordered_map<std::string, std::string> config_map;
 
     // return this reference when there is no value found in the map
-    const ConfigValue __empty_value;
+    ConfigValue __empty_value;
 };
 
 #endif

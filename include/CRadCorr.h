@@ -18,7 +18,6 @@ public:
 
         // calculated
         double Ep;       // final energy before coll. loss
-        double v;        // (Es - Ep)/Es
         double rad;      // Radiated cross section
         double born;     // Born cross section
         double last;     // Save info from last iteration
@@ -30,7 +29,23 @@ public:
         {};
 
         // for binary search
-        //operator <(const double &nu)
+        bool operator <(const double &val)
+        const
+        {
+            return nu < val;
+        }
+
+        bool operator ==(const double &val)
+        const
+        {
+            return nu == val;
+        }
+
+        bool operator >(const double &val)
+        const
+        {
+            return nu > val;
+        }
     };
 
     struct DataSet
@@ -115,109 +130,6 @@ private:
     double F_mott, Schwinger, delta, delta1, delta2, Bz; // for whole data sets
     double Es, BTB, BTA, XIB, XIA, GAMT;                 // for each spectrum
     double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax;       // for each data point
-
-public:
-    static double gamma(const double &z);
-    static double spence(const double &z, const double &res = 1e-15);
-    static double spence_tr(const double &z, const double &res, const int &nmax);
-
-    // simpson integration
-    static double simpson(double begin, double end,
-                          double (*f)(const double&), double step, int Nmin)
-    {
-        int Nsteps = (end - begin)/step;
-        int Nbins = std::max(Nmin, Nsteps)/2;
-        double s = (end - begin)/(double)(2.*Nbins);
-
-        // first bin
-        double result = (*f)(begin) + 4.*(*f)(begin + s) + (*f)(end);
-        double x = begin + 2.*s;
-        int i = 1;
-        while(i++ < Nbins)
-        {
-            result += 2.*(*f)(x) + 4.*(*f)(x + s);
-            x += 2.*s;
-        }
-
-        return result*s/3.;
-    }
-
-    template<class T>
-    static double simpson(double begin, double end,
-                          double (T::*f)(const double&), T *t, double step, int Nmin)
-    {
-        int Nsteps = (end - begin)/step;
-        int Nbins = std::max(Nmin, Nsteps)/2;
-        double s = (end - begin)/(double)(2.*Nbins);
-
-        // first bin
-        double result = (t->*f)(begin) + 4.*(t->*f)(begin + s) + (t->*f)(end);
-        double x = begin + 2.*s;
-        int i = 1;
-        while(i++ < Nbins)
-        {
-            result += 2.*(t->*f)(x) + 4.*(t->*f)(x + s);
-            x += 2.*s;
-        }
-
-        return result*s/3.;
-    }
-
-    template<class T, typename... Args>
-    static double simpson(double begin, double end, double step, int Nmin,
-                          double (T::*f)(const double&, const Args& ...), T *t,
-                          const Args&... args)
-    {
-        int Nsteps = (end - begin)/step;
-        int Nbins = std::max(Nmin, Nsteps)/2;
-        double s = (end - begin)/(double)(2.*Nbins);
-
-        // first bin
-        double result =  (t->*f)(begin, args...)
-                       + 4.*(t->*f)(begin + s, args...)
-                       + (t->*f)(end, args...);
-        double x = begin + 2.*s;
-        int i = 1;
-        while(i++ < Nbins)
-        {
-            result += 2.*(t->*f)(x, args...) + 4.*(t->*f)(x + s, args...);
-            x += 2.*s;
-        }
-
-        return result*s/3.;
-    }
-
-    template<class RdmaccIt, typename T>
-    static RdmaccIt binary_search(RdmaccIt beg, RdmaccIt end, T &val)
-    {
-        RdmaccIt mid = beg + (end - beg)/2;
-        while(mid != end && *mid != val)
-        {
-            if(val < *mid)
-                end = mid;
-            else
-                beg = mid + 1;
-            mid = beg + (end - beg)/2;
-        }
-
-        return mid;
-    }
-
-    template<class RdmaccIt, typename T>
-    static RdmaccIt binary_search_interval(RdmaccIt beg, RdmaccIt end, T &val)
-    {
-        RdmaccIt mid = beg + (end - beg)/2;
-        while(mid != end)
-        {
-            if(val < *mid)
-                end = mid;
-            else if(val > *(mid + 1))
-                beg = mid + 1;
-            else
-                break;
-        }
-        return mid;
-    }
 
 };
 

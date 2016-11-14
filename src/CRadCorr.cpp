@@ -1,18 +1,9 @@
 #include "CRadCorr.h"
+#include "canalib.h"
 #include "ConfigParser.h"
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
-
-
-// definition of some constants
-#define ALPHA 7.297352568E-3    // 1./137.03599911
-#define PI 3.1415926535897932   // pi
-#define RADDEG 57.2957795131    // rad to degree
-#define ELECM 0.510998918       // MeV
-#define HBARC 197.326968        // hbar*c (MeV*fm)
-#define AMUMEV 931.494043       // MeV per amu
-
 
 // constructor
 CRadCorr::CRadCorr()
@@ -73,7 +64,7 @@ void CRadCorr::Configure(const std::string &path)
     F_mott = F_mott*F_mott*1e7; // MeV^2*nb/sr
 
     // Schwinger term in internal radiation
-    Schwinger = PI*PI/6 - spence(cos2);
+    Schwinger = PI*PI/6 - cana::spence(cos2);
 
     // B(z) Eq. A45 in STEIN
     Bz = 1./9.*(target_Z + 1.)/(target_Z + __eta(target_Z));
@@ -434,7 +425,7 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
                       << ", ESMAX = " << Esmax
                       << std::endl;
         } else {
-            SIGBEF = simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
+            SIGBEF = cana::simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
         }
 
         // calculate integral along dEp for fixed Es SIGAFT
@@ -445,7 +436,7 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
                       << ", EPMAX = " << Esmax
                       << std::endl;
         } else {
-            SIGAFT = simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
+            SIGAFT = cana::simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
         }
 
         if(radiate) {
@@ -527,11 +518,11 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
         double FBAR = __F_bar(Es, Ep, GAMT);
 
                         // Es singularity
-        sgl_both = FBAR*std::pow(delta1/Es, BTB + BTR)/gamma(1. + BTB + BTR)
+        sgl_both = FBAR*std::pow(delta1/Es, BTB + BTR)/cana::gamma(1. + BTB + BTR)
                         // coll. loss term
                        *(1. - XIB/(1. - BTB - BTR)/delta1)
                         // Ep singularity
-                       *std::pow(delta2/Ep, BTA + BTR)/gamma(1. + BTA + BTR)
+                       *std::pow(delta2/Ep, BTA + BTR)/cana::gamma(1. + BTA + BTR)
                         // coll. loss term
                        *(1. - XIA/(1. - BTA - BTR)/delta2);
 
@@ -542,8 +533,8 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
                       << ", ESMAX = " << Esmax
                       << std::endl;
         } else {
-            int_2d = simpson(Esmin, Esmax, &CRadCorr::int_es, this, sim_step_2d, n_sim_2d);
-            sgl_Ep = simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
+            int_2d = cana::simpson(Esmin, Esmax, &CRadCorr::int_es, this, sim_step_2d, n_sim_2d);
+            sgl_Ep = cana::simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
         }
 
         if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
@@ -553,9 +544,9 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
                       << ", EPMAX = " << Esmax
                       << std::endl;
         } else {
-            sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_ep, this, sim_step, n_sim);
+            sgl_Es = cana::simpson(Epmin, Epmax, &CRadCorr::int_ep, this, sim_step, n_sim);
             // Es singularity
-            sgl_Es *= std::pow(delta1/Es, BTB + BTR)/gamma(1. + BTB + BTR);
+            sgl_Es *= std::pow(delta1/Es, BTB + BTR)/cana::gamma(1. + BTB + BTR);
             // coll. loss term
             sgl_Es *= 1. - XIB/(1 - BTB - BTR)/delta1;
         }
@@ -581,7 +572,7 @@ double CRadCorr::int_es(const double &Esx)
     if(Ep_max < Ep_min)
         return 0.;
 
-    return simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_esep, this, Esx);
+    return cana::simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_esep, this, Esx);
 }
 
 // should be inside int_es
@@ -609,7 +600,7 @@ double CRadCorr::int_esdp(const double &Esx)
     double TRx = __btr(Esx, Ep);
 
     double lost = __I(Es, Esx, XIB, BTB + TRx);
-    double int_dp = std::pow(delta2/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
+    double int_dp = std::pow(delta2/Esx, BTA + TRx)/cana::gamma(1. + BTA + TRx);
     // coll. loss term
     int_dp *= 1. - XIA/(1 - BTA - TRx)/delta2;
 
@@ -622,11 +613,11 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb >= __Ep_max(E0))
         return 0;
 
-    double WEXC = 1 - Eb/E0;
+    double nu = E0 - Eb;
 
     // less than the lowest energy we have
     if(E0 <= data_sets.at(0).energy) {
-        return interp(data_sets.at(0), WEXC)*F_mott/E0/E0;
+        return interp(data_sets.at(0), nu)*F_mott/E0/E0;
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 1;
@@ -637,8 +628,8 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
         }
         double E1 = data_sets.at(i-1).energy;
         double E2 = data_sets.at(i).energy;
-        double FTCS = (interp(data_sets.at(i-1), WEXC)*(E2-E0)
-                    + interp(data_sets.at(i), WEXC)*(E0-E1))/(E2-E1);
+        double FTCS = (interp(data_sets.at(i-1), nu)*(E2-E0)
+                    + interp(data_sets.at(i), nu)*(E0-E1))/(E2-E1);
         return F_mott/E0/E0*FTCS;
     } else {
         std::cerr << "Required energy E0 = " << E0
@@ -658,9 +649,9 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
 
     int mid = (first + last - 1)/2;
 
-    if(key < array[mid].v)
+    if(key < array[mid].nu)
         return __rc_binary_search(array, key, first, mid);
-    else if(key > array[mid+1].v)
+    else if(key > array[mid+1].nu)
         return __rc_binary_search(array, key, mid+1, last);
     else
         return mid;
@@ -669,12 +660,12 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
 double CRadCorr::interp(const DataSet &s, const double &w)
 {
     // exceeds the boundary
-    if(w < s.data.front().v)
+    if(w < s.data.front().nu)
         return 0.;
-    if(w >= s.data.back().v)
+    if(w >= s.data.back().nu)
         return s.data.back().born;
 
-    int j = __rc_binary_search(&s.data[0], w, 0, s.data.size());
+    int j = cana::binary_search_interval(s.data.begin(), s.data.end(), w);
     if(j < 0)
         return 0;
 
@@ -683,12 +674,12 @@ double CRadCorr::interp(const DataSet &s, const double &w)
         const DataPoint &p1 = s.data.at(j);
         const DataPoint &p2 = s.data.at(j+1);
 
-        double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
+        double _interp = p1.born*(p2.nu - w) + p2.born*(w - p1.nu);
 
         // LATEST CHANGE: removed unknown constant 0.00001 here, 
         // probably some protection for two same points
         // return _interp/(p2.v - p1.v + 0.00001);
-        return _interp/(p2.v - p1.v);
+        return _interp/(p2.nu - p1.nu);
     }
 
     // 3 point parabolic fit
@@ -696,9 +687,9 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     const DataPoint &p2 = s.data.at(j);
     const DataPoint &p3 = s.data.at(j+1);
     double x, xp, xm, a, b, c;
-    x = w - p2.v;
-    xp = p3.v - p2.v;
-    xm = p1.v - p2.v;
+    x = w - p2.nu;
+    xp = p3.nu - p2.nu;
+    xm = p1.nu - p2.nu;
     a = p2.born;
     c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
     c /= xp*xm*2;
@@ -739,9 +730,9 @@ inline void CRadCorr::spectrum_init(DataSet &s)
 
     Es = s.energy;
     // improvements by J. Singh
-    // two gamma function normalization so
-    // 1/gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
-    GAMT = gamma(1. + BTB) * gamma(1. + BTA);
+    // two cana::gamma function normalization so
+    // 1/cana::gamma(1 + b*tb)/gamma(1 + b*ta) = 1 + 0.5772b*(tb + ta) + ...
+    GAMT = cana::gamma(1. + BTB) * cana::gamma(1. + BTA);
 }
 
 // data point based kinematics initialization
@@ -845,7 +836,7 @@ inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
 {
     double _dE = _E0 - _E;
     double _v = _dE/_E0;
-    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/_dE*(__phi(_v) + _XI/2./_dE);
+    return _bt/cana::gamma(1. + _bt)*std::pow(_v, _bt)/_dE*(__phi(_v) + _XI/2./_dE);
 }
 
 // read experimental data in the format line by line
@@ -890,7 +881,6 @@ void CRadCorr::readData(ConfigParser &c_parser)
             DataPoint new_point(nu, cxsn, stat, syst);
             // calculate ep
             new_point.Ep = s.energy - nu;
-            new_point.v = nu/s.energy;
 
             s.data.push_back(std::move(new_point));
 
@@ -943,96 +933,3 @@ void CRadCorr::readData(ConfigParser &c_parser)
     }
 
 }
-
-#define __GAMMA_NUM 9
-#define __GAMMA_G 7.0
-static double __gamma_c[] = {0.9999999999998099,
-                             6.7652036812188510E2,
-                            -1.2591392167224028E3,
-                             7.7132342877765313E2,
-                            -1.7661502916214059E2,
-                             1.2507343278686905E1,
-                            -1.3857109526572012E-1,
-                             9.9843695780195716E-6,
-                             1.5056327351493116E-7};
-
-// gamma function
-double CRadCorr::gamma(const double &z)
-{
-
-    if(z < 1) {
-        return PI*(1 - z)/sin(PI*(1 - z))/gamma(2 - z);
-    } else if(z == 1) {
-        return 1;
-    } else {
-        double ag = __gamma_c[0];
-        for(int k = 1; k < __GAMMA_NUM; ++k)
-            ag += __gamma_c[k]/(z - 1. + k);
-
-        double output = 0.5*log(2*PI)
-                        + (z - 0.5)*log(z - 0.5 + __GAMMA_G)
-                        - (z - 0.5 + __GAMMA_G)
-                        + log(ag);
-        return exp(output);
-    }
-}
-
-#define __SPENCE_NUM 8
-#define __SPENCE_NMAX 50
-#define __SPENCE_NMAX_PREC 1000
-static double __spence_c[] = {-1.1741940560772957946600E-1,
-                              -2.7618966846029390643791E-2,
-                              -8.0493987190845793511240E-3,
-                              -2.7095568666150792944136E-3,
-                              -7.1455906877666711465857E-4,
-                               4.1757495974272487715417E-2,
-                              -4.9028996486663818655E-2,
-                              -9.08073640732783360};
-
-// spence function
-double CRadCorr::spence(const double &z, const double &res)
-{
-    if(z > 1) {
-        return 2*PI*PI/6 - log(z)*log(z)/2 - spence(1/z, res);
-    } else if (z == 1) {
-        return PI*PI/6;
-    } else if (z > 0.5) {
-        return PI*PI/6 - log(1-z)*log(z) - spence(1-z, res);
-    } else if (z == 0.5) {
-        return PI*PI/6/2 - log(0.5)*log(0.5)/2;
-    } else if (z > 0) {
-        return spence_tr(z, res, __SPENCE_NMAX); // do nothing, fall into the bottom session
-    } else if (z == 0) {
-        return 0;
-    } else if (z > -0.95) {
-        return spence_tr(z, res, __SPENCE_NMAX_PREC);
-    } else if (z > -1.05) {
-        // poly fit
-        double output = 0;
-        double dz = z + 1;
-        for(int i = 0; i < __SPENCE_NUM; ++i)
-            output += __spence_c[i]*std::pow(dz, i);
-        return -(1 + output*dz*dz)*PI*PI/6/2 + dz*log(2);
-    } else {
-        return -PI*PI/6 - log(-z)*log(-z)/2 - spence(1/z, res);
-    }
-}
-
-// truncation of spence function
-double CRadCorr::spence_tr(const double &z, const double &res, const int &nmax)
-{
-    // calculate spence until res is reached
-    double output = 0.;
-    int n = 0;
-    while(++n <= nmax)
-    {
-        double nth = std::pow(z, n)/n/n;
-        output += nth;
-
-        if(std::abs(nth) < res)
-            break;
-    }
-
-    return output;
-}
-

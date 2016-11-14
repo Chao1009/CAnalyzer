@@ -1,5 +1,5 @@
 #include "CMatrix.h"
-#include "CAnalyzer.h"
+#include "canalib.h"
 #include <iostream>
 #include <iomanip>
 #include <cmath>

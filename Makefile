@@ -44,7 +44,8 @@ OBJECTS_DIR   = obj
 
 SOURCES_DIR   = src
 
-CXX_OBJECTS   = $(OBJECTS_DIR)/ConfigParser.o \
+CXX_OBJECTS   = $(OBJECTS_DIR)/canalib.o \
+                $(OBJECTS_DIR)/ConfigParser.o \
 				$(OBJECTS_DIR)/ConfigValue.o \
 				$(OBJECTS_DIR)/ConfigObject.o \
                 $(OBJECTS_DIR)/CAnalyzer.o \

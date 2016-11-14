@@ -47,6 +47,13 @@ public:
     // take the lines/elements
     std::string TakeLine();
     ConfigValue TakeFirst();
+
+    template<typename T>
+    T TakeFirst()
+    {
+        return TakeFirst().Convert<T>();
+    }
+
     template<typename T>
     ConfigParser &operator >>(T &t)
     {

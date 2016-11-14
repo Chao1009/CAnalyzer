@@ -166,19 +166,32 @@ void ConfigParser::ParseLine(const string &line, const bool &count)
 
 bool ConfigParser::CheckElements(int num, int optional)
 {
+    string num_str;
+
     if(optional > 0) {
         if((elements.size() >= (size_t)num) &&
-           (elements.size() <= (size_t)(num + optional)))
+           (elements.size() <= (size_t)(num + optional))) {
             return true;
-    } else {
-        if(elements.size() == (size_t)num)
+        }
+
+        num_str = to_string(num) + " - " + to_string(num + optional);
+
+    } else if(optional == 0) {
+
+        if(elements.size() == (size_t)num) {
             return true;
+        }
+
+        num_str = to_string(num);
+
+    } else { // optional < 0
+        if(elements.size() >= (size_t)num) {
+            return true;
+        }
+
+        num_str = " >= " + to_string(num);
     }
 
-
-    string num_str = to_string(num);
-    if(optional > 0)
-        num_str += " - " + to_string(num + optional);
 
     cout << "Config Parser Warning: Wrong format at line "
          << line_number
