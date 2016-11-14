@@ -526,8 +526,14 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
         double int_2d = 0, sgl_Es = 0, sgl_Ep = 0, sgl_both = 0;
         double FBAR = __F_bar(Es, Ep, GAMT);
 
-        sgl_both = FBAR*std::pow((delta1 + XIB)/Es, BTB + BTR)/gamma(1. + BTB + BTR)
-                       *std::pow((delta2 + XIA)/Ep, BTA + BTR)/gamma(1. + BTA + BTR);
+                        // Es singularity
+        sgl_both = FBAR*std::pow(delta1/Es, BTB + BTR)/gamma(1. + BTB + BTR)
+                        // coll. loss term
+                       *(1. - XIB/(1. - BTB - BTR)/delta1)
+                        // Ep singularity
+                       *std::pow(delta2/Ep, BTA + BTR)/gamma(1. + BTA + BTR)
+                        // coll. loss term
+                       *(1. - XIA/(1. - BTA - BTR)/delta2);
 
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
             std::cout << "Skip point at Ep = " << Ep
@@ -547,7 +553,11 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
                       << ", EPMAX = " << Esmax
                       << std::endl;
         } else {
-            sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_epds, this, sim_step, n_sim);
+            sgl_Es = simpson(Epmin, Epmax, &CRadCorr::int_ep, this, sim_step, n_sim);
+            // Es singularity
+            sgl_Es *= std::pow(delta1/Es, BTB + BTR)/gamma(1. + BTB + BTR);
+            // coll. loss term
+            sgl_Es *= 1. - XIB/(1 - BTB - BTR)/delta1;
         }
 
         if(radiate) {
@@ -563,6 +573,7 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
 
 }
 
+// it is a 2d integral int_es(int_ep)
 double CRadCorr::int_es(const double &Esx)
 {
     double Ep_max = __Ep_max(Esx);
@@ -570,35 +581,37 @@ double CRadCorr::int_es(const double &Esx)
     if(Ep_max < Ep_min)
         return 0.;
 
-    double lost = __I(Es, Esx, XIB, BTB + BTR);
-    double inner_int = simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_ep, this, Esx);
-    return lost*inner_int;
+    return simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_esep, this, Esx);
 }
 
-double CRadCorr::int_ep(const double &Epx, const double &Esx)
+// should be inside int_es
+double CRadCorr::int_esep(const double &Epx, const double &Esx)
 {
     double FBAR = __F_bar(Esx, Epx, GAMT);
     double TRx = __btr(Esx, Epx);
-    return FBAR*get_cxsn(Esx, Epx)*__I(Epx, Ep, XIA, BTA + TRx);
+    return FBAR*get_cxsn(Esx, Epx)*__I(Epx, Ep, XIA, BTA + TRx)*__I(Es, Esx, XIB, XIB + TRx);
 }
 
-double CRadCorr::int_epds(const double &Epx)
+// integral over ep and es singularity
+double CRadCorr::int_ep(const double &Epx)
 {
     double FBAR = __F_bar(Es, Epx, GAMT);
     double TRx = __btr(Es, Epx);
 
     double lost = __I(Epx, Ep, XIA, BTA + TRx);
-    double int_ds = std::pow((delta1 + XIB)/Epx, BTB + TRx)/gamma(1. + BTB + TRx);
-    return lost*int_ds*FBAR*get_cxsn(Es, Epx);
+    return lost*FBAR*get_cxsn(Es, Epx);
 }
 
+// integral over es and ep singularity
 double CRadCorr::int_esdp(const double &Esx)
 {
     double FBAR = __F_bar(Esx, Ep, GAMT);
     double TRx = __btr(Esx, Ep);
 
     double lost = __I(Es, Esx, XIB, BTB + TRx);
-    double int_dp = std::pow((delta2 + XIA)/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
+    double int_dp = std::pow(delta2/Esx, BTA + TRx)/gamma(1. + BTA + TRx);
+    // coll. loss term
+    int_dp *= 1. - XIA/(1 - BTA - TRx)/delta2;
 
     return lost*int_dp*FBAR*get_cxsn(Esx, Ep);
 }
@@ -826,12 +839,13 @@ inline double CRadCorr::__btr(double _E, double _Epr)
 }
 
 // Probability function I(E0, E, t)
-// E0 is replaced by E0 - delta to include the ffect from ionization
+// __XI is accounted for collisional loss 
 // NOTICE here we are using b(z)t instead of t
-inline double CRadCorr::__I(double _E0, double _E, double _D, double _bt)
+inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
 {
-    double _v = (_E0 - _D - _E)/_E0;
-    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/(_E0 - _D - _E)*__phi(_v);
+    double _dE = _E0 - _E;
+    double _v = _dE/_E0;
+    return _bt/gamma(1. + _bt)*std::pow(_v, _bt)/_dE*(__phi(_v) + _XI/2./_dE);
 }
 
 // read experimental data in the format line by line

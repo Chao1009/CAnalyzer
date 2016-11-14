@@ -28,6 +28,9 @@ public:
         DataPoint(double n, double c, double st, double sy)
         : nu(n), stat(st), syst(sy), rad(c), born(c), last(c)
         {};
+
+        // for binary search
+        //operator <(const double &nu)
     };
 
     struct DataSet
@@ -79,9 +82,9 @@ private:
     double fes(const double &Es);
     double fep(const double &Ep);
     double int_es(const double &Es);
-    double int_ep(const double &Ep, const double &Es);
+    double int_esep(const double &Ep, const double &Es);
+    double int_ep(const double &Ep);
     double int_esdp(const double &Es);
-    double int_epds(const double &Ep);
     double get_cxsn(const double &E0, const double &Eb);
     double interp(const DataSet &set, const double &w);
     void calculateXI(DataSet &set);
@@ -119,7 +122,8 @@ public:
     static double spence_tr(const double &z, const double &res, const int &nmax);
 
     // simpson integration
-    static double simpson(double begin, double end, double (*f)(const double&), double step, int Nmin)
+    static double simpson(double begin, double end,
+                          double (*f)(const double&), double step, int Nmin)
     {
         int Nsteps = (end - begin)/step;
         int Nbins = std::max(Nmin, Nsteps)/2;
@@ -139,7 +143,8 @@ public:
     }
 
     template<class T>
-    static double simpson(double begin, double end, double (T::*f)(const double&), T *t, double step, int Nmin)
+    static double simpson(double begin, double end,
+                          double (T::*f)(const double&), T *t, double step, int Nmin)
     {
         int Nsteps = (end - begin)/step;
         int Nbins = std::max(Nmin, Nsteps)/2;
@@ -160,7 +165,8 @@ public:
 
     template<class T, typename... Args>
     static double simpson(double begin, double end, double step, int Nmin,
-                          double (T::*f)(const double&, const Args& ...), T *t, const Args&... args)
+                          double (T::*f)(const double&, const Args& ...), T *t,
+                          const Args&... args)
     {
         int Nsteps = (end - begin)/step;
         int Nbins = std::max(Nmin, Nsteps)/2;
@@ -180,6 +186,39 @@ public:
 
         return result*s/3.;
     }
+
+    template<class RdmaccIt, typename T>
+    static RdmaccIt binary_search(RdmaccIt beg, RdmaccIt end, T &val)
+    {
+        RdmaccIt mid = beg + (end - beg)/2;
+        while(mid != end && *mid != val)
+        {
+            if(val < *mid)
+                end = mid;
+            else
+                beg = mid + 1;
+            mid = beg + (end - beg)/2;
+        }
+
+        return mid;
+    }
+
+    template<class RdmaccIt, typename T>
+    static RdmaccIt binary_search_interval(RdmaccIt beg, RdmaccIt end, T &val)
+    {
+        RdmaccIt mid = beg + (end - beg)/2;
+        while(mid != end)
+        {
+            if(val < *mid)
+                end = mid;
+            else if(val > *(mid + 1))
+                beg = mid + 1;
+            else
+                break;
+        }
+        return mid;
+    }
+
 };
 
 #endif
