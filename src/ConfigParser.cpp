@@ -301,16 +301,13 @@ inline bool ConfigParser::parse_buffer()
 // return false if no pair found
 bool ConfigParser::comment_between(string &str, const string &open, const string &close)
 {
-    auto begin = str.find(open);
-    if(begin != string::npos) {
-        auto end = str.find(close, begin + open.size());
-        if(end != string::npos) {
-            str.erase(begin, end + close.size() - begin);
-            return true;
-        }
+    int pos1, pos2;
+    if(!find_pair(str, open, close, pos1, pos2)) {
+        return false;
+    } else {
+        str.erase(pos1, pos2 - pos1 + close.size());
+        return true;
     }
-
-    return false;
 }
 
 // comment out the characters with certain mark
@@ -530,26 +527,12 @@ bool ConfigParser::find_pair(const std::string &str,
                              const string &open, const string &close,
                              int &open_pos, int &close_pos)
 {
-    size_t first_close = str.find(close);
-
-    // did not find any close mark
-    if(first_close == string::npos)
+    auto pairs = find_pairs(str, open ,close);
+    if(pairs.empty())
         return false;
 
-    vector<int> opens;
-    for(int i = 0; i < (int)first_close; ++i)
-    {
-        if(str.substr(i, open.size()) == open)
-            opens.push_back(i);
-    }
-
-    // did not find any open mark
-    if(opens.empty())
-        return false;
-
-    open_pos = opens.back();
-    close_pos = first_close;
-
+    open_pos = pairs.front().first;
+    close_pos = pairs.front().second;
     return true;
 }
 
@@ -561,8 +544,23 @@ vector<pair<int, int>> ConfigParser::find_pairs(const string &str,
     vector<pair<int, int>> result;
 
     if(op == cl) {
-        cerr << "find_between: do not accept identical open and close marks."
-                  << endl;
+        list<int> opens;
+        int end_pos = str.size() - op.size() + 1;
+        for(int i = 0; i < end_pos; ++i)
+        {
+            if(str.substr(i, op.size()) == op) {
+                opens.push_back(i);
+                i += op.size() - 1;
+            }
+        }
+        while(opens.size() > 1)
+        {
+            int beg = opens.front();
+            opens.pop_front();
+            int end = opens.front();
+            opens.pop_front();
+            result.emplace_back(beg, end);
+        }
         return result;
     }
 
@@ -576,14 +574,18 @@ vector<pair<int, int>> ConfigParser::find_pairs(const string &str,
         return result;
 
     list<int> opens;
-    for(int i = 0; i < (int)str.size(); ++i)
+    int end_pos = str.size() - op.size() + 1;
+    for(int i = 0; i < end_pos; ++i)
     {
-        if(str.substr(i, op.size()) == op)
+        if(str.substr(i, op.size()) == op) {
             opens.push_back(i);
+            i += op.size() - 1;
+        }
     }
 
     list<int> closes;
-    for(int i = 0; i < (int)str.size(); ++i)
+    end_pos = str.size() - cl.size() + 1;
+    for(int i = 0; i < end_pos; ++i)
     {
         if(str.substr(i, cl.size()) == cl)
         {
@@ -594,21 +596,18 @@ vector<pair<int, int>> ConfigParser::find_pairs(const string &str,
                     share_char = true;
             }
 
-            if(!share_char)
+            if(!share_char) {
                 closes.push_back(i);
+                i += cl.size() - 1;
+            }
         }
-    }
-
-    if(closes.size() != opens.size()) {
-        cout << "find_between: find unmatched open and close marks."
-                  << endl;
     }
 
     for(auto cl_it = closes.begin(); cl_it != closes.end(); ++cl_it)
     {
         for(auto op_it = opens.rbegin(); op_it != opens.rend(); ++op_it)
         {
-            if((*cl_it - *op_it) >= mark_size)
+            if((*cl_it - *op_it) >= (int)op.size())
             {
                 result.emplace_back(*op_it, *cl_it);
                 opens.erase(next(op_it).base());

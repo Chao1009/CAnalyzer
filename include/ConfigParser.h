@@ -106,7 +106,6 @@ private:
     bool parse_file();
     bool parse_buffer();
     std::string comment_out(const std::string &str, size_t index = 0);
-    bool comment_between(std::string &str, const std::string &open, const std::string &close);
 
 private:
     // private members
@@ -123,6 +122,7 @@ private:
 
 public:
     // static functions
+    static bool comment_between(std::string &str, const std::string &open, const std::string &close);
     static std::string comment_out(const std::string &str, const std::string &c);
     static std::string trim(const std::string &str, const std::string &w);
     static std::queue<std::string> split(const std::string &str, const std::string &s);
