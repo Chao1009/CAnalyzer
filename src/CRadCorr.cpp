@@ -641,22 +641,6 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     return 0.;
 }
 
-// recursive binary_search for terp
-int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, const int &first, const int &last)
-{
-    if(first >= last)
-        return -1;
-
-    int mid = (first + last - 1)/2;
-
-    if(key < array[mid].v)
-        return __rc_binary_search(array, key, first, mid);
-    else if(key > array[mid+1].v)
-        return __rc_binary_search(array, key, mid+1, last);
-    else
-        return mid;
-}
-
 double CRadCorr::interp(const DataSet &s, const double &w)
 {
     // exceeds the boundary
@@ -665,14 +649,21 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     if(w >= s.data.back().v)
         return s.data.back().born;
 
-    int j = __rc_binary_search(&s.data[0], w, 0, s.data.size());
-    if(j < 0)
+    // search the position of w
+    auto it_pair = cana::binary_search_interval(s.data.begin(), s.data.end(), w);
+
+    // not found
+    if(it_pair.second == s.data.end() || it_pair.first == s.data.end())
         return 0;
 
-    // do 2 points interpolation
-    if(j <= 1) {
-        const DataPoint &p1 = s.data.at(j);
-        const DataPoint &p2 = s.data.at(j+1);
+    // exact matched
+    if(it_pair.first == it_pair.second)
+        return it_pair.first->born;
+
+    // only have 2 points, do a straight line interpolation
+    if(it_pair.first == s.data.begin()) {
+        const DataPoint &p1 = *it_pair.first;
+        const DataPoint &p2 = *it_pair.second;
 
         double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
 
@@ -682,10 +673,15 @@ double CRadCorr::interp(const DataSet &s, const double &w)
         return _interp/(p2.v - p1.v);
     }
 
-    // 3 point parabolic fit
-    const DataPoint &p1 = s.data.at(j-1);
-    const DataPoint &p2 = s.data.at(j);
-    const DataPoint &p3 = s.data.at(j+1);
+    // 3 points parabolic fit
+    if((w - it_pair.first->v) >= (it_pair.second->v - w)) {
+        // closer to second point, move toward 1 step
+        it_pair.first++;
+        it_pair.second++;
+    }
+    const DataPoint &p1 = *(it_pair.first - 1);
+    const DataPoint &p2 = *it_pair.first;
+    const DataPoint &p3 = *it_pair.second;
     double x, xp, xm, a, b, c;
     x = w - p2.v;
     xp = p3.v - p2.v;

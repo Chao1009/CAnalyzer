@@ -4,6 +4,7 @@
 
 #include <iterator>
 #include <algorithm>
+#include <utility>
 #include <cmath>
 
 // definition of some constants
@@ -120,6 +121,35 @@ namespace cana
             return not_found;
 
         return mid;
+    }
+
+    template<class RdmaccIt, typename T>
+    std::pair<RdmaccIt, RdmaccIt> binary_search_interval(RdmaccIt beg,
+                                                         RdmaccIt end,
+                                                         const T &val)
+    {
+        RdmaccIt first = beg, last = end;
+        RdmaccIt mid = beg + (end - beg)/2;
+        while(mid != end && *mid != val)
+        {
+            if(*mid > val)
+                end = mid;
+            else
+                beg = mid + 1;
+            mid = beg + (end - beg)/2;
+        }
+
+        if(mid == end) {
+            if(*mid < val) {
+                return std::make_pair(mid, mid + 1);
+            } else {
+                if(mid == first)
+                    return std::make_pair(last, last);
+                return std::make_pair(mid - 1, mid);
+            }
+        }
+
+        return std::make_pair(mid, mid);
     }
 };
 

@@ -30,23 +30,10 @@ public:
         {};
 
         // for binary search
-        bool operator <(const double &val)
-        const
-        {
-            return v < val;
-        }
-
-        bool operator ==(const double &val)
-        const
-        {
-            return v == val;
-        }
-
-        bool operator >(const double &val)
-        const
-        {
-            return v > val;
-        }
+        bool operator <(const double &val) const {return v < val;}
+        bool operator >(const double &val) const {return v > val;}
+        bool operator ==(const double &val) const {return v == val;}
+        bool operator !=(const double &val) const {return v != val;}
     };
 
     struct DataSet

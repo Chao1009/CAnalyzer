@@ -123,6 +123,17 @@ public:
 
 void function_test()
 {
+    vector<int> test = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    vector<double> search = {0.5, 1.5, 8.5, 0, 9, 9.5, -0.5};
+    for(auto &val : search)
+    {
+        auto it_pair = cana::binary_search_interval(test.begin(), test.end(), val);
+        if(it_pair.first == test.end() || it_pair.second == test.end())
+            cout << val << " not found." << endl;
+        else
+            cout << val << " is in " << *it_pair.first << ", " << *it_pair.second << endl;
+    }
+
     vector<double> gn = {0.9, 1.0, 1.1};
     for(auto &g : gn)
         cout << setw(10) << "gamma: "
