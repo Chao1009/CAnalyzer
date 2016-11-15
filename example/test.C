@@ -127,18 +127,18 @@ void function_test()
     for(auto &g : gn)
         cout << setw(10) << "gamma: "
              << setw(8) << g << ", "
-             << setw(15) << CRadCorr::gamma(g) << endl;
+             << setw(15) << cana::gamma(g) << endl;
 
     vector<double> sn = {1.1, 1.0, 0.8, 0.5, 0.3, 0.0, -0.9, -1.01, -1.1};
     for(auto &s : sn)
         cout << setw(10) << "spence: "
              << setw(8) << s << ", "
-             << setw(15) << CRadCorr::spence(s) << endl;
+             << setw(15) << cana::spence(s) << endl;
 
     MyQuad myq(2.0);
 
-    cout << CRadCorr::simpson(0, 10, &quad, 0.01, 1000) << endl;
-    cout << CRadCorr::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
+    cout << cana::simpson(0, 10, &quad, 0.01, 1000) << endl;
+    cout << cana::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
 }
 
 void radcor_test()

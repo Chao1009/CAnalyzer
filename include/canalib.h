@@ -102,8 +102,10 @@ namespace cana
     }
 
     template<class RdmaccIt, typename T>
-    static int binary_search(RdmaccIt beg, RdmaccIt end, T &val)
+    RdmaccIt binary_search(RdmaccIt beg, RdmaccIt end, const T &val)
     {
+        RdmaccIt not_found = end;
+
         RdmaccIt mid = beg + (end - beg)/2;
         while(mid != end && *mid != val)
         {
@@ -115,31 +117,9 @@ namespace cana
         }
 
         if(mid == end)
-            return -1;
+            return not_found;
 
-        return mid - beg;
-    }
-
-    template<class RdmaccIt, typename T>
-    static int binary_search_interval(RdmaccIt beg, RdmaccIt end, T &val)
-    {
-        RdmaccIt mid = beg + (end - beg)/2;
-        while(mid != end)
-        {
-            if(*mid > val)
-                end = mid;
-            else if(*(mid + 1) < val)
-                beg = mid + 1;
-            else
-                break;
-
-            mid = beg + (end - beg)/2;
-        }
-
-        if(mid == end)
-            return -1;
-
-        return mid - beg;
+        return mid;
     }
 };
 

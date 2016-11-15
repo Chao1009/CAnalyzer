@@ -18,6 +18,7 @@ public:
 
         // calculated
         double Ep;       // final energy before coll. loss
+        double v;        // nu/E0
         double rad;      // Radiated cross section
         double born;     // Born cross section
         double last;     // Save info from last iteration
@@ -32,19 +33,19 @@ public:
         bool operator <(const double &val)
         const
         {
-            return nu < val;
+            return v < val;
         }
 
         bool operator ==(const double &val)
         const
         {
-            return nu == val;
+            return v == val;
         }
 
         bool operator >(const double &val)
         const
         {
-            return nu > val;
+            return v > val;
         }
     };
 

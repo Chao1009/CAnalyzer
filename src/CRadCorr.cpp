@@ -613,11 +613,11 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb >= __Ep_max(E0))
         return 0;
 
-    double nu = E0 - Eb;
+    double weight = (E0 - Eb)/E0;
 
     // less than the lowest energy we have
     if(E0 <= data_sets.at(0).energy) {
-        return interp(data_sets.at(0), nu)*F_mott/E0/E0;
+        return interp(data_sets.at(0), weight)*F_mott/E0/E0;
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 1;
@@ -628,8 +628,8 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
         }
         double E1 = data_sets.at(i-1).energy;
         double E2 = data_sets.at(i).energy;
-        double FTCS = (interp(data_sets.at(i-1), nu)*(E2-E0)
-                    + interp(data_sets.at(i), nu)*(E0-E1))/(E2-E1);
+        double FTCS = (interp(data_sets.at(i-1), weight)*(E2-E0)
+                       + interp(data_sets.at(i), weight)*(E0-E1))/(E2-E1);
         return F_mott/E0/E0*FTCS;
     } else {
         std::cerr << "Required energy E0 = " << E0
@@ -649,9 +649,9 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
 
     int mid = (first + last - 1)/2;
 
-    if(key < array[mid].nu)
+    if(key < array[mid].v)
         return __rc_binary_search(array, key, first, mid);
-    else if(key > array[mid+1].nu)
+    else if(key > array[mid+1].v)
         return __rc_binary_search(array, key, mid+1, last);
     else
         return mid;
@@ -660,12 +660,12 @@ int __rc_binary_search(const CRadCorr::DataPoint *array, const double &key, cons
 double CRadCorr::interp(const DataSet &s, const double &w)
 {
     // exceeds the boundary
-    if(w < s.data.front().nu)
+    if(w < s.data.front().v)
         return 0.;
-    if(w >= s.data.back().nu)
+    if(w >= s.data.back().v)
         return s.data.back().born;
 
-    int j = cana::binary_search_interval(s.data.begin(), s.data.end(), w);
+    int j = __rc_binary_search(&s.data[0], w, 0, s.data.size());
     if(j < 0)
         return 0;
 
@@ -674,12 +674,12 @@ double CRadCorr::interp(const DataSet &s, const double &w)
         const DataPoint &p1 = s.data.at(j);
         const DataPoint &p2 = s.data.at(j+1);
 
-        double _interp = p1.born*(p2.nu - w) + p2.born*(w - p1.nu);
+        double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
 
         // LATEST CHANGE: removed unknown constant 0.00001 here, 
         // probably some protection for two same points
         // return _interp/(p2.v - p1.v + 0.00001);
-        return _interp/(p2.nu - p1.nu);
+        return _interp/(p2.v - p1.v);
     }
 
     // 3 point parabolic fit
@@ -687,9 +687,9 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     const DataPoint &p2 = s.data.at(j);
     const DataPoint &p3 = s.data.at(j+1);
     double x, xp, xm, a, b, c;
-    x = w - p2.nu;
-    xp = p3.nu - p2.nu;
-    xm = p1.nu - p2.nu;
+    x = w - p2.v;
+    xp = p3.v - p2.v;
+    xm = p1.v - p2.v;
     a = p2.born;
     c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
     c /= xp*xm*2;
@@ -881,6 +881,7 @@ void CRadCorr::readData(ConfigParser &c_parser)
             DataPoint new_point(nu, cxsn, stat, syst);
             // calculate ep
             new_point.Ep = s.energy - nu;
+            new_point.v = nu/s.energy;
 
             s.data.push_back(std::move(new_point));
 
