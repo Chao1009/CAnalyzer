@@ -92,6 +92,8 @@ private:
     double interp(const DataSet &set, const double &w);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
+    template<typename T>
+    void number_operation(const std::string &key, T &val);
 
     // some lines
     void spectrum_init(DataSet &set);

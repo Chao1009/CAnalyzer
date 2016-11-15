@@ -916,6 +916,9 @@ void CRadCorr::readData(ConfigParser &c_parser)
             c_parser >> energy >> error >> norm
                      >> radl_bef >> radl_aft >> coll_bef >> coll_aft;
 
+            number_operation("Radiation Length Before", radl_bef);
+            number_operation("Radiation Length After", radl_aft);
+
             DataSet new_set(energy, radl_bef, radl_aft, coll_bef, coll_aft, error, norm);
             new_set.weight_mott = F_mott/energy/energy;
 
@@ -925,6 +928,39 @@ void CRadCorr::readData(ConfigParser &c_parser)
             std::cout << "Skipped line " << c_parser.LineNumber()
                       << ", format is unrecognized." << std::endl
                       << "\"" << c_parser.CurrentLine() << "\""
+                      << std::endl;
+        }
+    }
+
+}
+
+template<typename T>
+void CRadCorr::number_operation(const std::string &key, T &val)
+{
+    auto operations = ConfigParser::split(GetConfig<std::string>(key), ",");
+
+    while(operations.size())
+    {
+        std::string op = ConfigParser::trim(operations.front(), " \t");
+        operations.pop();
+        try {
+            double number = stod(op.substr(1));
+            if(op.at(0) == '+') {
+                val += number;
+            } else if(op.at(0) == '-') {
+                val -= number;
+            } else if(op.at(0) == '*') {
+                val *= number;
+            } else if(op.at(0) == '/') {
+                val /= number;
+            } else {
+                std::cout << "Does not support operator type " << op.at(0)
+                          << ", skip operation of " << op
+                          << std::endl;
+            }
+        } catch(std::exception &e) {
+            std::cout << "Error: " << e.what()
+                      << ", skip operation of " << op
                       << std::endl;
         }
     }
