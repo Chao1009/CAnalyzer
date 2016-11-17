@@ -674,11 +674,6 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     }
 
     // 3 points parabolic fit
-    if((w - it_pair.first->v) >= (it_pair.second->v - w)) {
-        // closer to second point, move toward 1 step
-        it_pair.first++;
-        it_pair.second++;
-    }
     const DataPoint &p1 = *(it_pair.first - 1);
     const DataPoint &p2 = *it_pair.first;
     const DataPoint &p3 = *it_pair.second;
