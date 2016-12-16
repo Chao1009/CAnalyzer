@@ -231,9 +231,9 @@ void CRadCorr::Radiate()
         std::cout << "Radiate, spectrum energy: " << s.energy << std::endl;
 
         if(peak_approx)
-            radcor(s);
+            radcor(s, true);
         else
-            xyrad2d(s);
+            xyrad2d(s, true);
     }
 }
 
