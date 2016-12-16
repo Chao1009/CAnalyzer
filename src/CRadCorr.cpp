@@ -441,7 +441,7 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = SIGLOW*s.weight_mott*point.born + SIGBEF + SIGAFT;
+            point.rad = SIGLOW*point.born + (SIGBEF + SIGAFT)/s.weight_mott;
         } else {
             // save last iteration
             point.last = point.born;
@@ -553,7 +553,7 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = sgl_both*s.weight_mott*point.born + sgl_Es + sgl_Ep + int_2d;
+            point.rad = sgl_both*point.born + (sgl_Es + sgl_Ep + int_2d)/s.weight_mott;
         } else {
             // save last iteration
             point.last = point.born;
