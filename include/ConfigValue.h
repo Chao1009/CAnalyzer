@@ -36,7 +36,7 @@ static std::string demangle(const char* name)
 
 // this helps template specialization in class
 template <typename T>
-struct __cv_identifier { typedef T type; };
+struct __cv_id { typedef T type; };
 
 class ConfigValue
 {
@@ -98,14 +98,14 @@ public:
     T Convert()
     const
     {
-        return convert( __cv_identifier<T>());
+        return convert( __cv_id<T>());
     };
 
 private:
     std::string _value;
 
     template<typename T>
-    T convert(__cv_identifier<T> &&)
+    T convert(__cv_id<T> &&)
     const
     {
         std::stringstream iss(_value);
@@ -122,23 +122,13 @@ private:
         return _cvalue;
     }
 
-    ConfigValue convert(__cv_identifier<ConfigValue>)
-    const
-    {
-        return *this;
-    }
-
-    bool convert(__cv_identifier<bool> &&)
-    const
-    {
-        return (*this).Bool();
-    }
-
-    std::string convert(__cv_identifier<std::string> &&)
-    const
-    {
-        return (*this)._value;
-    }
+    ConfigValue convert(__cv_id<ConfigValue>) const {return *this;}
+    bool convert(__cv_id<bool> &&) const {return (*this).Bool();}
+    float convert(__cv_id<float> &&) const {return (*this).Float();}
+    double convert(__cv_id<double> &&) const {return (*this).Double();}
+    long double convert(__cv_id<long double> &&) const {return (*this).LongDouble();}
+    std::string convert(__cv_id<std::string> &&) const {return (*this)._value;}
+    const char* convert(__cv_id<const char*> &&) const {return (*this)._value.c_str();}
 
 };
 

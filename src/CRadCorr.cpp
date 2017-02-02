@@ -56,8 +56,8 @@ void CRadCorr::Configure(const std::string &path)
     // common value for all spectrums
     angle /= RADDEG;
     target_M = target_A * AMUMEV;
-    sin2 = sin(angle/2)*sin(angle/2);
-    cos2 = cos(angle/2)*cos(angle/2);
+    sin2 = sin(angle/2.)*sin(angle/2.);
+    cos2 = cos(angle/2.)*cos(angle/2.);
 
     // mott cross section
     F_mott = HBARC*ALPHA*cos(angle/2)/2/sin2;
@@ -959,5 +959,4 @@ void CRadCorr::number_operation(const std::string &key, T &val)
                       << std::endl;
         }
     }
-
 }

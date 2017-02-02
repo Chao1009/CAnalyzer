@@ -48,10 +48,10 @@ CXX_OBJECTS   = $(OBJECTS_DIR)/canalib.o \
                 $(OBJECTS_DIR)/ConfigParser.o \
 				$(OBJECTS_DIR)/ConfigValue.o \
 				$(OBJECTS_DIR)/ConfigObject.o \
+                $(OBJECTS_DIR)/CRadCorr.o \
                 $(OBJECTS_DIR)/CAnalyzer.o \
                 $(OBJECTS_DIR)/CMatrix.o \
-                $(OBJECTS_DIR)/CEstimator.o \
-                $(OBJECTS_DIR)/CRadCorr.o
+                $(OBJECTS_DIR)/CEstimator.o
 
 first: all
 ####### Build rules

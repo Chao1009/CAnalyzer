@@ -235,7 +235,7 @@ void ConfigParser::buffer_process(string &buffer)
     string line;
     for(auto &c : buffer)
     {
-        if( c != '\n') {
+        if(c != '\n') {
             line += c;
         } else {
             lines.push(line);
@@ -536,7 +536,7 @@ bool ConfigParser::strcmp_case_insensitive(const string &str1, const string &str
 
 // find the first pair position in a string, it will return the most inner pair
 // if the first pair is a mult-layer structure
-bool ConfigParser::find_pair(const std::string &str,
+bool ConfigParser::find_pair(const string &str,
                              const string &open, const string &close,
                              int &open_pos, int &close_pos)
 {
@@ -630,4 +630,39 @@ vector<pair<int, int>> ConfigParser::find_pairs(const string &str,
     }
 
     return result;
+}
+
+// get file name and directory from a path
+ConfigParser::PathInfo ConfigParser::decompose_path(const string &path)
+{
+    // remove directory and affix
+    auto dir_pos = path.find_last_of("/");
+    auto suf_pos = path.find_last_of(".");
+
+    PathInfo res;
+    if(dir_pos == string::npos) {
+        res.dir = "./";
+        res.name = path.substr(0, suf_pos);
+        if(suf_pos != string::npos)
+            res.suffix = path.substr(suf_pos + 1);
+    } else {
+        res.dir = path.substr(0, dir_pos + 1);
+        res.name = path.substr(dir_pos + 1, suf_pos - dir_pos - 1);
+        if(suf_pos != string::npos && suf_pos > dir_pos)
+            res.suffix = path.substr(suf_pos + 1);
+    }
+
+    return res;
+}
+
+string ConfigParser::form_path(const string &dir, const string &file)
+{
+    string file_path;
+    file_path.reserve(dir.size() + file.size() + 1);
+
+    file_path = dir;
+    if(file_path.size() && file_path.back() != '/') file_path += "/";
+    file_path += file;
+
+    return file_path;
 }

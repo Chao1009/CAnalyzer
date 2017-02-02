@@ -158,13 +158,17 @@ bool ConfigObject::readConfigFile(const std::string &path)
         if (c_parser.NbofElements() != 2)
             continue;
 
-        std::string var_name, key;
-        ConfigValue var_value;
+        std::string var_name, key, var_value;
         c_parser >> var_name >> var_value;
 
         // convert to lower case and remove uninterested characters
         key = ConfigParser::str_lower(ConfigParser::str_remove(var_name, ignore_chars));
-        config_map[key] = var_value;
+
+        auto it = config_map.find(key);
+        if(it != config_map.end())
+            it->second += ", " + var_value;
+        else
+            config_map[key] = var_value;
     }
     return true;
 }

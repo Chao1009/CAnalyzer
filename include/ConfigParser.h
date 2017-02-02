@@ -41,6 +41,7 @@ public:
     // get current parsing status
     bool CheckElements(int num, int optional = 0);
     int NbofElements() const {return elements.size();};
+    int NbofLines() const {return lines.size();};
     int LineNumber() const {return line_number;};
     const std::string &CurrentLine() const {return current_line;};
 
@@ -107,6 +108,7 @@ public:
     const std::vector<std::string> &GetCommentMarks() const {return comment_marks;};
     const std::pair<std::string, std::string> &GetCommentPair() const {return comment_pair;};
 
+
 private:
     // private functions
     void buffer_process(std::string &buffer);
@@ -147,6 +149,9 @@ public:
     static int find_integer(const std::string &str, const size_t &pos = 0);
     static std::vector<int> find_integers(const std::string &str);
     static void find_integer_helper(const std::string &str, std::vector<int> &result);
+    struct PathInfo { std::string dir, name, suffix; };
+    static PathInfo decompose_path(const std::string &path);
+    static std::string form_path(const std::string &dir, const std::string &file);
 };
 
 #endif
