@@ -2,6 +2,7 @@
 {
     // load library
     gSystem->Load("/home/chao/saGDH/analysis/tools/libCAna.so");
+    gSystem->Load("libgfortran.so.3");
     // load include folder
     gSystem->AddIncludePath("/home/chao/saGDH/analysis/tools/include");
     // add include folder for the interpreter

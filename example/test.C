@@ -152,6 +152,23 @@ void function_test()
     cout << cana::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
 }
 
+void model_wrapper_test()
+{
+    double Z = 2.0, A = 3.0, Q2 = 1.0, W2 = 0.5;
+    double f1, f2, rc;
+    Bosted_f1f2in09(Z, A, Q2, W2, &f1, &f2, &rc);
+    cout << f1 << ", " << f2 << endl;
+    Bosted_f1f2qe09(Z, A, Q2, W2, &f1, &f2);
+    cout << f1 << ", " << f2 << endl;
+
+    double xs;
+    for(double nu = 521.0; nu <= 550.0; nu += 1.0)
+    {
+        Bosted_xs(Z, A, 0.6, (600 - nu)/1000., 5.99/RADDEG, &xs);
+        cout << nu << ", " << 1000.*xs << endl;
+    }
+}
+
 void radcor_test()
 {
     CRadCorr rad_cor;

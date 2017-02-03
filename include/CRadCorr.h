@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 #include "ConfigObject.h"
+#include "FortranWrapper.h"
+
 
 class CRadCorr : public ConfigObject
 {
@@ -62,6 +64,11 @@ public:
         : energy(e), radl_before(rb), radl_after(ra), coll_before(cb), coll_after(ca),
           error(er), normalization(no), non_rad(m)
         {};
+
+        bool operator <(const double &val) const {return energy < val;}
+        bool operator >(const double &val) const {return energy > val;}
+        bool operator ==(const double &val) const {return energy == val;}
+        bool operator !=(const double &val) const {return energy != val;}
     };
 
 public:
@@ -89,7 +96,8 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    double interp(const DataSet &set, const double &w);
+    double interp(const DataSet &s, const double &w);
+    double from_model(const double &E0, const double &Eb);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
     template<typename T>

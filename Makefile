@@ -11,7 +11,9 @@ MAKEFILE      = Makefile
 
 CC            = gcc
 CXX           = g++
+FORTRAN       = gfortran
 CXXFLAGS      = -shared -pipe -std=c++11 -O2 -g -Wall -m64 -mtune=generic -fPIC
+FFLAGS        = -fPIC
 INCPATH       = -Iinclude -I$(ROOTSYS)/include
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -36,41 +38,52 @@ RANLIB        =
 SED           = sed
 STRIP         = 
 
-####### Files
 
+####### Files
 TARGET        = libCAna.so
 
 OBJECTS_DIR   = obj
-
 SOURCES_DIR   = src
 
-CXX_OBJECTS   = $(OBJECTS_DIR)/canalib.o \
-                $(OBJECTS_DIR)/ConfigParser.o \
-				$(OBJECTS_DIR)/ConfigValue.o \
-				$(OBJECTS_DIR)/ConfigObject.o \
-                $(OBJECTS_DIR)/CRadCorr.o \
-                $(OBJECTS_DIR)/CAnalyzer.o \
-                $(OBJECTS_DIR)/CMatrix.o \
-                $(OBJECTS_DIR)/CEstimator.o
+CXX_SUFFIX    = cpp
+CXX_SOURCES   = canalib \
+                ConfigParser \
+				ConfigValue \
+				ConfigObject \
+                CRadCorr \
+                CAnalyzer \
+                CMatrix \
+                CEstimator
 
-first: all
+F_SUFFIX      = f
+F_SOURCES     = BostedFit
+
+
+CXX_OBJECTS   = $(addprefix $(OBJECTS_DIR)/, $(CXX_SOURCES:=.cpp.o))
+F_OBJECTS     = $(addprefix $(OBJECTS_DIR)/, $(F_SOURCES:=.f.o))
+OBJECTS       = $(CXX_OBJECTS) $(F_OBJECTS)
+
 ####### Build rules
+first: all
 
-$(TARGET):  $(CXX_OBJECTS)
-	$(LINK) $(LFLAGS) -o $(TARGET) $(CXX_OBJECTS) $(OBJCOMP) $(LIBS)
+$(TARGET):  $(OBJECTS)
+	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
 
 all: Makefile $(TARGET)
 
 clean: cleanobj cleantgt
 
 cleanobj:
-	-$(DEL_FILE) $(CXX_OBJECTS)
+	-$(DEL_FILE) $(OBJECTS)
 
 cleantgt:
 	-$(DEL_FILE) $(TARGET)
 
-$(OBJECTS_DIR)/%.o: $(SOURCES_DIR)/%.cpp
+$(OBJECTS_DIR)/%.cpp.o: $(SOURCES_DIR)/%.$(CXX_SUFFIX)
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
+
+$(OBJECTS_DIR)/%.f.o: $(SOURCES_DIR)/%.$(F_SUFFIX)
+	$(FORTRAN) -c $(FFLAGS) $(INCPATH) -o $@ $<
 
 ####### Install
 
