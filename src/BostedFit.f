@@ -70,6 +70,8 @@
       call F1F2IN09(Z, A, Qsq, Wsq, F1, F2, rc)
       END SUBROUTINE F1F2IN09_C
 
+
+
 !=======================================================================
 ! An interface of F1F2QE09 to C/C++
       SUBROUTINE F1F2QE09_C(Z, A, Qsq, Wsq, F1, F2)
@@ -83,8 +85,13 @@
       call F1F2QE09(Z, A, Qsq, Wsq, F1, F2)
       END SUBROUTINE F1F2QE09_C
 
+
+
+!=======================================================================
+! An interface to get the cross section
       SUBROUTINE GETXS(Z, A, Ei, Ef, theta, xs)
      &bind(C, name = "Bosted_xs")
+!-----------------------------------------------------------------------
       USE, intrinsic :: ISO_C_BINDING
       implicit none
       real(C_DOUBLE), intent(IN), value :: Z, A, Ei, Ef, theta
@@ -107,6 +114,8 @@
       xs = xs*Mott/1.0D5 ! ub/MeV/sr
 
       END SUBROUTINE GETXS
+
+
 
 !=======================================================================
 

@@ -404,9 +404,11 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
 {
     spectrum_init(s);
 
+    int count = 0;
     // iteration on data points
     for(auto &point : s.data)
     {
+        std::cout << count++ << "/" << s.data.size() << "\r" << std::flush;
         point_init(point);
 
         // components of SIGRAD
@@ -449,6 +451,7 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
             point.born = (point.rad - (SIGBEF+SIGAFT)/s.weight_mott)/SIGLOW;
         }
     }
+    std::cout << count << "/" << s.data.size() << std::endl;
 }
 
 // for integral along dEs
@@ -508,9 +511,11 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
 {
     spectrum_init(s);
 
+    int count = 0;
     // iteration on data points
     for(auto &point : s.data)
     {
+        std::cout << count++ << "/" << s.data.size() << "\r" << std::flush;
         point_init(point);
 
         // components of SIGRAD
@@ -561,6 +566,7 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
             point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/s.weight_mott)/sgl_both;
         }
     }
+    std::cout << count << "/" << s.data.size() << std::endl;
 
 }
 
@@ -613,42 +619,55 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb >= __Ep_max(E0))
         return 0;
 
-    double weight = 1. -  Eb/E0;
+    double weight = (E0 - Eb)/E0;
 
-    // search the position of E0 in data sets
-    auto it_pair = cana::binary_search_interval(data_sets.begin(), data_sets.end(), E0);
-    // out of spectrum
-    if(it_pair.second == data_sets.end() || it_pair.first == data_sets.end()) {
+    // less than the lowest energy we have
+    if(E0 < data_sets.at(0).energy) {
         return from_model(E0, Eb);
-    // exact matched
-    } else if(it_pair.first == it_pair.second) {
-        return interp(*(it_pair.first), weight)*F_mott/E0/E0;
-    // find in between
-    } else {
-        double E1 = it_pair.first->energy;
-        double E2 = it_pair.second->energy;
-        double FTCS = (interp(*(it_pair.first), weight)*(E2-E0)
-                       + interp(*(it_pair.second), weight)*(E0-E1))/(E2-E1);
+    // within the energy range in spectrum
+    } else if (E0 <= data_sets.back().energy) {
+        size_t i = 0;
+        for(; i < data_sets.size(); ++i)
+        {
+            if(data_sets.at(i).energy >= E0)
+                break;
+        }
+        if(data_sets.at(i).energy == E0)
+            return interp(data_sets.at(i), weight)*F_mott/E0/E0;
+
+        double E1 = data_sets.at(i-1).energy;
+        double E2 = data_sets.at(i).energy;
+        double FTCS = (interp(data_sets.at(i-1), weight)*(E2-E0)
+                       + interp(data_sets.at(i), weight)*(E0-E1))/(E2-E1);
         return F_mott/E0/E0*FTCS;
+    } else {
+        std::cerr << "Required energy E0 = " << E0
+                  << " exceeds the highest energy in data Emax = "
+                  << data_sets.back().energy
+                  << std::endl;
+        exit(-1);
     }
+    return 0.;
 }
 
 double CRadCorr::interp(const DataSet &s, const double &w)
 {
+    // exceeds the boundary
+    if(w < s.data.front().v)
+        return 0.;
+    if(w >= s.data.back().v)
+        return s.data.back().born;
+
     // search the position of w
     auto it_pair = cana::binary_search_interval(s.data.begin(), s.data.end(), w);
 
     // not found
-    if(it_pair.second == s.data.end() || it_pair.first == s.data.end()) {
-        // return cross section normalized by Mott, to be consistent
-        //double cxsn = from_model(s.energy, (1. - w)*s.energy);
-        //return cxsn/(F_mott/s.energy/s.energy);
-        return 0.;
-    }
+    if(it_pair.second == s.data.end() || it_pair.first == s.data.end())
+        return 0;
 
     // exact matched
     if(it_pair.first == it_pair.second)
-        return (it_pair.first->born);
+        return it_pair.first->born;
 
     // only have 2 points, do a straight line interpolation
     if(it_pair.first == s.data.begin()) {
@@ -675,7 +694,7 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
     c /= xp*xm*2;
     b = (p3.born - p1.born)/(xp - xm) - c*(xp + xm);
-    return (a + b*x + c*x*x);
+    return a + b*x + c*x*x;
 }
 
 inline double CRadCorr::from_model(const double &E0, const double &Eb)

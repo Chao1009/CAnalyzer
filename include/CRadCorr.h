@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 #include "ConfigObject.h"
-#include "FortranWrapper.h"
+#include "ModelWrapper.h"
 
 
 class CRadCorr : public ConfigObject

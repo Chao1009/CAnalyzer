@@ -11,6 +11,9 @@ extern "C"
 
     void Bosted_xs(double Z, double A, double Ei, double Ef, double theta,
                    double *xs);
+
+    void QFS_xs(double Z, double A, double Ei, double Ef, double theta,
+                double *xs);
 }
 
 

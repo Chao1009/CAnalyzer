@@ -56,7 +56,8 @@ CXX_SOURCES   = canalib \
                 CEstimator
 
 F_SUFFIX      = f
-F_SOURCES     = BostedFit
+F_SOURCES     = BostedFit \
+                QFSFit
 
 
 CXX_OBJECTS   = $(addprefix $(OBJECTS_DIR)/, $(CXX_SOURCES:=.cpp.o))

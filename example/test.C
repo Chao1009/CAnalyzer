@@ -162,10 +162,12 @@ void model_wrapper_test()
     cout << f1 << ", " << f2 << endl;
 
     double xs;
-    for(double nu = 521.0; nu <= 550.0; nu += 1.0)
+    for(double nu = 1.0; nu <= 1000.0; nu += 1.0)
     {
-        Bosted_xs(Z, A, 0.6, (600 - nu)/1000., 5.99/RADDEG, &xs);
-        cout << nu << ", " << 1000.*xs << endl;
+        Bosted_xs(Z, A, 1.147, (1147 - nu)/1000., 9.03/RADDEG, &xs);
+        cout << "BST: " << nu << ", " << 1000.*xs << endl;
+        QFS_xs(Z, A, 1.147, (1147 - nu)/1000., 9.03/RADDEG, &xs);
+        cout << "QFS: " << nu << ", " << 1000.*xs << endl;
     }
 }
 
