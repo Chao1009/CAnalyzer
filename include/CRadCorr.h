@@ -97,6 +97,8 @@ private:
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
     double interp(const DataSet &s, const double &w);
+    void init_model();
+    void find_model_scale(const DataSet &mset);
     double from_model(const double &E0, const double &Eb);
     void calculateXI(DataSet &set);
     void readData(ConfigParser &p);
@@ -116,7 +118,7 @@ private:
     double __btr(double E, double Epr);
     double __I(double E0, double E, double xi, double bt);
 
-
+private:
     std::vector<DataSet> data_sets;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
     int n_sim, n_sim_2d;
@@ -129,6 +131,9 @@ private:
     double Es, BTB, BTA, XIB, XIA, GAMT;                 // for each spectrum
     double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax;       // for each data point
 
+    // model related
+    double model_scale;
+    double model_shift;
 };
 
 #endif

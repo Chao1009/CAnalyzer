@@ -59,6 +59,7 @@
 
 !=======================================================================
 ! An interface of F1F2IN09 to C/C++
+! Accepts unit in MeV^2
       SUBROUTINE F1F2IN09_C(Z, A, Qsq, Wsq, F1, F2, rc)
      &bind(C, name = "Bosted_f1f2in09")
 !-----------------------------------------------------------------------
@@ -67,13 +68,14 @@
       real(C_DOUBLE), intent(IN), value :: Z, A, Qsq, Wsq
       real(C_DOUBLE), intent(OUT) :: F1, F2, rc
 
-      call F1F2IN09(Z, A, Qsq, Wsq, F1, F2, rc)
+      call F1F2IN09(Z, A, Qsq*1.0D-6, Wsq*1.0D-6, F1, F2, rc)
       END SUBROUTINE F1F2IN09_C
 
 
 
 !=======================================================================
 ! An interface of F1F2QE09 to C/C++
+! Accepts unit in MeV^2
       SUBROUTINE F1F2QE09_C(Z, A, Qsq, Wsq, F1, F2)
      &bind(C, name = "Bosted_f1f2qe09")
 !-----------------------------------------------------------------------
@@ -82,13 +84,14 @@
       real(C_DOUBLE), intent(IN), value :: Z, A, Qsq, Wsq
       real(C_DOUBLE), intent(OUT) :: F1, F2
 
-      call F1F2QE09(Z, A, Qsq, Wsq, F1, F2)
+      call F1F2QE09(Z, A, Qsq*1.0D-6, Wsq*1.0D-6, F1, F2)
       END SUBROUTINE F1F2QE09_C
 
 
 
 !=======================================================================
 ! An interface to get the cross section
+! Accepts unit in MeV and radian, output in ub/MeV/sr
       SUBROUTINE GETXS(Z, A, Ei, Ef, theta, xs)
      &bind(C, name = "Bosted_xs")
 !-----------------------------------------------------------------------
@@ -100,18 +103,18 @@
       real*8 th, nu, Qsq, Wsq, F1QE, F2QE, F1IN, F2IN, r, Mott
 
       th = abs(theta)/2.0D0
-      nu = Ei - Ef
+      nu = (Ei - Ef)*1.0D-3
 
-      Qsq = 4.0D0 * Ei * Ef * sin(th)**2
+      Qsq = 4.0D0 * Ei * Ef * sin(th)**2 * 1.0D-6
       Wsq = PM**2 + 2.0D0 * PM * nu - Qsq
 
       call F1F2IN09(Z, A, Qsq, Wsq, F1IN, F2IN, r)
       call F1F2QE09(Z, A, Qsq, Wsq, F1QE, F2QE)
 
-      Mott = (2.0D0/Qsq *ALPHA * Ef * cos(th) * HBARC)**2
+      Mott = (2.0D0/Qsq *ALPHA * Ef * cos(th) * HBARC)**2 * 1.0D-6
 
       xs = 2.0D0/PM * (F1QE + F1IN) * tan(th)**2 + (F2QE + F2IN)/nu
-      xs = xs*Mott/1.0D5 ! ub/MeV/sr
+      xs = xs*Mott/1.0D2 ! ub/MeV/sr
 
       END SUBROUTINE GETXS
 

@@ -1,5 +1,6 @@
 !=======================================================================
 ! An interface to get the cross section
+! Accepts unit in MeV and radian, output in ub/MeV/sr
       SUBROUTINE GETXS(Z, A, Ei, Ef, theta, xs)
      &bind(C, name = "QFS_xs")
 !-----------------------------------------------------------------------
@@ -8,7 +9,7 @@
       real(C_DOUBLE), intent(IN), value :: Z, A, Ei, Ef, theta
       real(C_DOUBLE), intent(OUT) :: xs
       real*8 sig, nu, E, TH, PF/130.0/, EPS/10.0/, EPSD/0.0/
-      real*8 NORM/1D4/ ! convert the cross section to ub/GeV/sr
+      real*8 NORM/1D7/ ! convert the cross section to ub/MeV/sr
       REAL*8 PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       DATA PM/938.9187D0/                ! avg. proton/neutron mass in MeV
@@ -28,16 +29,15 @@
       DATA XPAR1/0.0453828D0/
       REAL*8 SIGQFS, SIG2N, SIGDEL, SIGR1, SIGR2, SIGX
 
-      E = Ei*1000D0
-      nu = (Ei - Ef)*1000D0
+      nu = (Ei - Ef)
       TH = theta/PI*180D0
       sig = 0D0
-      sig = sig + SIGQFS(E,TH,nu,Z,A,EPS,PF)               ! Q.E. peak
-      sig = sig + SIG2N (E,TH,nu,Z,A,PF)                   ! Dip region
-      sig = sig + SIGDEL(E,TH,nu,A,EPSD,PF)                ! Delta
-      sig = sig + SIGR1 (E,TH,nu,A,PF)                     ! Resonance 1500 MeV
-      sig = sig + SIGR2 (E,TH,nu,A,PF)                     ! Resonance 1700 MeV
-      sig = sig + SIGX  (E,TH,nu,A)                        ! DIS
+      sig = sig + SIGQFS(Ei,TH,nu,Z,A,EPS,PF)               ! Q.E. peak
+      sig = sig + SIG2N (Ei,TH,nu,Z,A,PF)                   ! Dip region
+      sig = sig + SIGDEL(Ei,TH,nu,A,EPSD,PF)                ! Delta
+      sig = sig + SIGR1 (Ei,TH,nu,A,PF)                     ! Resonance 1500 MeV
+      sig = sig + SIGR2 (Ei,TH,nu,A,PF)                     ! Resonance 1700 MeV
+      sig = sig + SIGX  (Ei,TH,nu,A)                        ! DIS
 
 
       xs = sig*NORM

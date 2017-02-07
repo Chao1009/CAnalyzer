@@ -288,6 +288,8 @@ void CRadCorr::iterByNumbers(int iters)
 {
     for(int i = 1; i <= iters; ++i)
     {
+        init_model();
+
         for(auto &s : data_sets)
         {
             // do nothing for non-radiated data
@@ -313,6 +315,8 @@ void CRadCorr::iterByPrecision()
 
     while(iter)
     {
+        init_model();
+
         for(auto &s : data_sets)
         {
             // do nothing for non-radiated data
@@ -623,7 +627,8 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 
     // less than the lowest energy we have
     if(E0 < data_sets.at(0).energy) {
-        return from_model(E0, Eb);
+        return interp(data_sets.at(0), weight)*F_mott/E0/E0;
+        //return from_model(E0, Eb);
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 0;
@@ -697,12 +702,70 @@ double CRadCorr::interp(const DataSet &s, const double &w)
     return a + b*x + c*x*x;
 }
 
+// initialize the model
+// determine the scale and shift from the data at lowest energy
+void CRadCorr::init_model()
+{
+    // data sets should be in a energy transcendent order
+    for(unsigned int i = 0; i < data_sets.size(); ++i)
+    {
+        if(!data_sets.at(i).non_rad) {
+            find_model_scale(data_sets.at(i));
+            break;
+        }
+    }
+}
+
+// Determines the scale and shift from the peak value, so the data set should has
+// QE peak or delta resonance peak, otherwise it will be problematic
+void CRadCorr::find_model_scale(const DataSet &mset)
+{
+    // find the peak point
+    unsigned int ip = 0;
+    double max_xs = 0.;
+    for(unsigned int i = 0; i < mset.data.size(); ++i)
+    {
+        const DataPoint &p = mset.data.at(i);
+        if(p.born > max_xs) {
+            ip = i;
+            max_xs = p.born;
+        }
+    }
+
+    // the maximum point
+    const DataPoint &mpoint = mset.data.at(ip);
+
+    max_xs = 0.;
+    double cxsn = 0, max_nu = 0.;
+    // we search the QE peak in the model for a +-20 MeV range
+    for(double nu = std::max(5., mpoint.nu - 20.); nu < mpoint.nu + 20.; nu += 1.0)
+    {
+        QFS_xs(target_Z, target_A, mset.energy, (mset.energy - nu), angle, &cxsn);
+        if(max_xs < cxsn)
+        {
+            max_xs = cxsn;
+            max_nu = nu;
+        }
+    }
+
+    model_scale = mpoint.born*mset.weight_mott/max_xs;
+    model_shift = mpoint.nu - max_nu;
+
+    std::cout << "Determined model scale and shift from spectrum at "
+              << mset.energy << " MeV. "
+              << std::endl
+              << "Scale = " << model_scale << ", "
+              << "shift = " << model_shift
+              << std::endl;
+}
+
+// get cross sections from model
 inline double CRadCorr::from_model(const double &E0, const double &Eb)
 {
     // bosted model
     double cxsn;
-    Bosted_xs(target_Z, target_A, E0/1000., Eb/1000., angle, &cxsn);
-    return 1000.*cxsn;
+    QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    return cxsn*model_scale;
 }
 
 // calculate XI based on STEIN's formula

@@ -2,7 +2,7 @@
 extern "C"
 {
     // units
-    // GeV, GeV^2, radian, ub/GeV/sr
+    // MeV, MeV^2, radian, ub/MeV/sr
     void Bosted_f1f2in09(double Z, double A, double Q2, double W2,
                          double *F1, double *F2, double *rc);
 
