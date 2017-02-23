@@ -89,7 +89,7 @@ bool ConfigParser::ReadFile(const string &path)
     f.close();
 
     // remove comments and break the buffers into lines
-    buffer_process(buffer);
+    bufferProcess(buffer);
     return true;
 }
 
@@ -101,7 +101,7 @@ void ConfigParser::ReadBuffer(const char *buf)
     string buffer = buf;
 
     // remove comments and break the buffers into lines
-    buffer_process(buffer);
+    bufferProcess(buffer);
 }
 
 // clear stored lines
@@ -109,7 +109,7 @@ void ConfigParser::Clear()
 {
     line_number = 0;
     infile.close();
-    queue<string>().swap(lines);
+    lines.clear();
 }
 
 // close file
@@ -123,7 +123,7 @@ string ConfigParser::TakeLine()
 {
     if(lines.size()) {
         string out = lines.front();
-        lines.pop();
+        lines.pop_front();
         return out;
     }
 
@@ -135,35 +135,48 @@ string ConfigParser::TakeLine()
 // return false if empty
 bool ConfigParser::ParseLine()
 {
-    queue<string>().swap(elements);
+    elements.clear();
 
     if(infile.is_open())
-        return parse_file();
+        return parseFile();
     else
-        return parse_buffer();
+        return parseBuffer();
 }
 
-// parse a input string (line)
-// trim the white space and split the string into elements by defined splitters
-// the elements will be further trimmed
-void ConfigParser::ParseLine(const string &line, const bool &count)
+// parse the whole file all buffer
+bool ConfigParser::ParseAll()
 {
-    if(count)
-        ++line_number;
-
-    string trim_line = trim(comment_out(line), white_space);
-
-    queue<string> eles = split(trim_line, splitters);
-
-    while(eles.size())
-    {
-        string ele = trim(eles.front(), white_space);
-        if(ele.size())
-            elements.push(ele);
-        eles.pop();
+    elements.clear();
+    if(infile.is_open()) {
+        while(parseFile()) {;}
+    } else {
+        while(parseBuffer()) {;}
     }
+
+    return !(elements.empty());
 }
 
+// parse a input string, trim the white space and split the string into elements
+// by defined splitters, the elements will also be trimmed
+int ConfigParser::ParseString(const string &line)
+{
+    deque<string> eles = split(line.c_str(), getCommentPoint(line), splitters);
+
+    int count = 0;
+    for(auto &ele : eles)
+    {
+        string trim_ele = trim(ele, white_space);
+        if(trim_ele.size()) {
+            elements.emplace_back(move(trim_ele));
+            count++;
+        }
+    }
+
+    return count;
+}
+
+// check if the current elemtns number is in the range [num, num + optional]
+// output a warning message if not
 bool ConfigParser::CheckElements(int num, int optional)
 {
     string num_str;
@@ -207,12 +220,13 @@ bool ConfigParser::CheckElements(int num, int optional)
 ConfigValue ConfigParser::TakeFirst()
 {
     if(elements.empty()) {
-        cout << "Config Parser: WARNING, trying to take elements while there is nothing, 0 value returned." << endl;
+        cout << "Config Parser Warning: Trying to take elements while there is "
+             << "nothing, 0 value returned." << endl;
         return ConfigValue("0");
     }
 
     ConfigValue output(move(elements.front()));
-    elements.pop();
+    elements.pop_front();
 
     return output;
 }
@@ -224,7 +238,7 @@ ConfigValue ConfigParser::TakeFirst()
 //============================================================================//
 
 // process the read-in buffer
-void ConfigParser::buffer_process(string &buffer)
+void ConfigParser::bufferProcess(string &buffer)
 {
     if(comment_pair.first.size() && comment_pair.second.size()) {
         // comment by pair marks
@@ -238,7 +252,7 @@ void ConfigParser::buffer_process(string &buffer)
         if(c != '\n') {
             line += c;
         } else {
-            lines.push(line);
+            lines.push_back(line);
             line.clear();
         }
     }
@@ -246,29 +260,31 @@ void ConfigParser::buffer_process(string &buffer)
 
 // take a line from opened file and parse it
 // comment with comment pair will be removed here
-inline bool ConfigParser::parse_file()
+bool ConfigParser::parseFile()
 {
+    int count = 0;
     // comment pair needs to be taken care here
-    while(elements.empty())
+    while(!count)
     {
+        // end of file
         if(!getline(infile, current_line))
-            return false; // end of file
+            return false;
+
+        // count the line parsed
+        ++line_number;
 
         // no need to take care comment pair
         if(comment_pair.first.empty() || comment_pair.second.empty()) {
-            ParseLine(current_line);
+            count = ParseString(current_line);
         } else {
             // if we had comment pair opened
             if(in_comment_pair) {
                 // see if there is an end to the comment pair
                 auto c_end = current_line.find(comment_pair.second);
+                // end of a comment pair
                 if(c_end != string::npos) {
-                    // end of a comment pair
-                    ParseLine(current_line.substr(c_end + comment_pair.second.size()));
+                    count = ParseString(current_line.substr(c_end + comment_pair.second.size()));
                     in_comment_pair = false;
-                } else {
-                    // still inside a comment pair
-                    ParseLine("");
                 }
             // if no previous comment pair opened
             } else {
@@ -279,11 +295,11 @@ inline bool ConfigParser::parse_file()
                 auto c_beg = current_line.find(comment_pair.first);
                 // find comment pair openning
                 if(c_beg != string::npos) {
-                    ParseLine(current_line.substr(0, c_beg));
+                    count = ParseString(current_line.substr(0, c_beg));
                     in_comment_pair = true;
                 } else {
                     // no special treatment
-                    ParseLine(current_line);
+                    count = ParseString(current_line);
                 }
             }
         }
@@ -294,47 +310,42 @@ inline bool ConfigParser::parse_file()
 
 // take a line from the stored lines buffer and parse it
 // comment by comment pair has been already removed before going into the lines
-inline bool ConfigParser::parse_buffer()
+bool ConfigParser::parseBuffer()
 {
     // comment pair has been taken care before breaking into lines,
     // so it's simple here
-    while(elements.empty())
+    int count = 0;
+    while(!count)
     {
+        // end of buffer
         if(lines.empty())
-            return false; // end of buffer
+            return false;
+
+        // count the line parsed
+        ++line_number;
+
         current_line = move(lines.front());
-        lines.pop();
-        ParseLine(current_line);
+        lines.pop_front();
+        count = ParseString(current_line);
     }
 
     return true; // parsed a line
 }
 
-// comment out between pairs
-// return false if no pair found
-bool ConfigParser::comment_between(string &str, const string &open, const string &close)
-{
-    int pos1, pos2;
-    if(!find_pair(str, open, close, pos1, pos2)) {
-        return false;
-    } else {
-        str.erase(pos1, pos2 - pos1 + close.size());
-        return true;
-    }
-}
-
 // comment out the characters with certain mark
-string ConfigParser::comment_out(const string &str, size_t index)
+size_t ConfigParser::getCommentPoint(const string &str)
 {
-    if(index >= comment_marks.size())
-        return str;
-    else {
-        string str_co = comment_out(str, comment_marks.at(index));
-        return comment_out(str_co, ++index);
+    size_t res = str.size();
+
+    for(auto &mark : comment_marks)
+    {
+        const auto c_begin = str.find(mark);
+        if(c_begin != string::npos && c_begin < res) {
+            res = c_begin;
+        }
     }
+    return res;
 }
-
-
 
 //============================================================================//
 // Public Static Function                                                     //
@@ -350,6 +361,19 @@ string ConfigParser::comment_out(const string &str, const string &c)
     return str.substr(0, commentBegin);
 }
 
+// comment out between pairs
+// return false if no pair found
+bool ConfigParser::comment_between(string &str, const string &open, const string &close)
+{
+    int pos1, pos2;
+    if(!find_pair(str, open, close, pos1, pos2)) {
+        return false;
+    } else {
+        str.erase(pos1, pos2 - pos1 + close.size());
+        return true;
+    }
+}
+
 // trim all the characters defined as white space at both ends
 string ConfigParser::trim(const string &str, const string &w)
 {
@@ -361,31 +385,48 @@ string ConfigParser::trim(const string &str, const string &w)
     const auto strEnd = str.find_last_not_of(w);
 
     const auto strRange = strEnd - strBegin + 1;
-
     return str.substr(strBegin, strRange);
 }
 
 // split a string into several pieces by all the characters defined as splitter
-queue<string> ConfigParser::split(const string &str, const string &s)
+deque<string> ConfigParser::split(const string &str, const string &s)
 {
-    queue<string> eles;
+    deque<string> eles;
 
-    char *cstr = new char[str.length() + 1];
+    char cstr[str.length() + 1];
 
     strcpy(cstr, str.c_str());
 
-    char *pch = strtok(&cstr[0], s.c_str());
-    string ele;
+    char *pch = strtok(cstr, s.c_str());
 
     while(pch != nullptr)
     {
-        ele = pch;
-        eles.push(pch);
+        eles.emplace_back(pch);
         pch = strtok(nullptr, s.c_str());
     }
 
-    delete cstr;
+    return eles;
+}
 
+// split a char array into several pieces
+deque<string> ConfigParser::split(const char* str, const size_t &size, const string &s)
+{
+    deque<string> eles;
+
+    char str_cpy[size + 1];
+
+    // end of C string
+    str_cpy[size] = '\0';
+
+    strncpy(str_cpy, str, size);
+
+    char *pch = strtok(str_cpy, s.c_str());
+
+    while(pch != nullptr)
+    {
+        eles.emplace_back(pch);
+        pch = strtok(nullptr, s.c_str());
+    }
     return eles;
 }
 
@@ -651,6 +692,20 @@ ConfigParser::PathInfo ConfigParser::decompose_path(const string &path)
         if(suf_pos != string::npos && suf_pos > dir_pos)
             res.suffix = path.substr(suf_pos + 1);
     }
+
+    return res;
+}
+
+// form the path
+std::string ConfigParser::compose_path(const ConfigParser::PathInfo &path)
+{
+    std::string res(path.dir);
+    res.reserve(path.dir.size() + path.name.size() + path.suffix.size() + 2);
+
+    if(res.back() != '/')
+        res += '/';
+
+    res += path.name + "." + path.suffix;
 
     return res;
 }

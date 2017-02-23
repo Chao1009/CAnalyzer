@@ -164,9 +164,9 @@ void model_wrapper_test()
     double xs;
     for(double nu = 1.0; nu <= 1000.0; nu += 1.0)
     {
-        Bosted_xs(Z, A, 1147, 1147 - nu, 9.03/RADDEG, &xs);
+        Bosted_xs(Z, A, 1147, 1147 - nu, 9.03/cana::rad_deg, &xs);
         cout << "BST: " << nu << ", " << xs << endl;
-        QFS_xs(Z, A, 1147, 1147 - nu, 9.03/RADDEG, &xs);
+        QFS_xs(Z, A, 1147, 1147 - nu, 9.03/cana::rad_deg, &xs);
         cout << "QFS: " << nu << ", " << xs << endl;
     }
 }
@@ -201,6 +201,6 @@ void radcor_test()
         cout << "OFF" << endl;
 
 //    rad_cor.Radiate();
-    rad_cor.RadiativeCorrection(3);
+    rad_cor.RadiativeCorrection(1);
     rad_cor.SaveResult("radcor_out.dat");
 }

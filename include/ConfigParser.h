@@ -5,7 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <queue>
+#include <deque>
 #include "ConfigValue.h"
 
 // config parser class
@@ -35,8 +35,10 @@ public:
 
     // parse line, return false if no more line to parse
     bool ParseLine();
-    // parse a string as a line, by default it will count it into line_number
-    void ParseLine(const std::string &line, const bool &count = true);
+    // parse the whole file or buffer, return false if no elements found
+    bool ParseAll();
+    // parse a string, trim and split it into elements
+    int ParseString(const std::string &line);
 
     // get current parsing status
     bool CheckElements(int num, int optional = 0);
@@ -72,7 +74,7 @@ public:
                 break;
 
             *it = elements.front();
-            elements.pop();
+            elements.pop_front();
         }
         return count;
     }
@@ -84,7 +86,7 @@ public:
         while(elements.size())
         {
             res.emplace_back(std::move(elements.front()));
-            elements.pop();
+            elements.pop_front();
         }
         return res;
     }
@@ -96,7 +98,7 @@ public:
         while(elements.size())
         {
             ConfigValue tmp(std::move(elements.front()));
-            elements.pop();
+            elements.pop_front();
             res.emplace_back(tmp.Convert<T>());
         }
         return res;
@@ -111,10 +113,10 @@ public:
 
 private:
     // private functions
-    void buffer_process(std::string &buffer);
-    bool parse_file();
-    bool parse_buffer();
-    std::string comment_out(const std::string &str, size_t index = 0);
+    void bufferProcess(std::string &buffer);
+    bool parseFile();
+    bool parseBuffer();
+    size_t getCommentPoint(const std::string &str);
 
 private:
     // private members
@@ -122,11 +124,11 @@ private:
     std::string white_space;
     std::vector<std::string> comment_marks;
     std::pair<std::string, std::string> comment_pair;
-    std::queue<std::string> lines;
+    std::deque<std::string> lines;
+    std::deque<std::string> elements;
     std::string current_line;
     int line_number;
     bool in_comment_pair;
-    std::queue<std::string> elements;
     std::ifstream infile;
 
 public:
@@ -134,7 +136,8 @@ public:
     static bool comment_between(std::string &str, const std::string &open, const std::string &close);
     static std::string comment_out(const std::string &str, const std::string &c);
     static std::string trim(const std::string &str, const std::string &w);
-    static std::queue<std::string> split(const std::string &str, const std::string &s);
+    static std::deque<std::string> split(const std::string &str, const std::string &s);
+    static std::deque<std::string> split(const char* str, const size_t &size, const std::string &s);
     static std::string str_remove(const std::string &str, const std::string &ignore);
     static std::string str_replace(const std::string &str, const std::string &ignore, const char &rc = ' ');
     static std::string str_lower(const std::string &str);
@@ -151,6 +154,7 @@ public:
     static void find_integer_helper(const std::string &str, std::vector<int> &result);
     struct PathInfo { std::string dir, name, suffix; };
     static PathInfo decompose_path(const std::string &path);
+    static std::string compose_path(const PathInfo &path);
     static std::string form_path(const std::string &dir, const std::string &file);
 };
 

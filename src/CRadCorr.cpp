@@ -5,6 +5,8 @@
 #include <iomanip>
 #include <algorithm>
 
+
+
 // constructor
 CRadCorr::CRadCorr()
 {
@@ -23,7 +25,8 @@ void CRadCorr::Configure(const std::string &path)
     // the configuration value is supposed to be provided in config file
     // if the term is not included in configuration file, it will use the
     // default value
-    readConfigFile(path);
+    if(!path.empty())
+        ConfigObject::Configure(path);
 
     // get configuration value from the file
     // functions
@@ -54,17 +57,17 @@ void CRadCorr::Configure(const std::string &path)
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    angle /= RADDEG;
-    target_M = target_A * AMUMEV;
+    angle *= cana::deg_rad;
+    target_M = target_A * cana::amu;
     sin2 = sin(angle/2.)*sin(angle/2.);
     cos2 = cos(angle/2.)*cos(angle/2.);
 
     // mott cross section
-    F_mott = HBARC*ALPHA*cos(angle/2)/2/sin2;
+    F_mott = cana::hbarc*cana::alpha*cos(angle/2)/2/sin2;
     F_mott = F_mott*F_mott*1e7; // MeV^2*nb/sr
 
     // Schwinger term in internal radiation
-    Schwinger = PI*PI/6 - cana::spence(cos2);
+    Schwinger = cana::pi*cana::pi/6 - cana::spence(cos2);
 
     // B(z) Eq. A45 in STEIN
     Bz = 1./9.*(target_Z + 1.)/(target_Z + __eta(target_Z));
@@ -79,7 +82,7 @@ void CRadCorr::Configure(const std::string &path)
     while(files.size())
     {
         flist.push_back(ConfigParser::trim(files.front(), " \t"));
-        files.pop();
+        files.pop_front();
     }
     if(!flist.empty())
         ReadExpData(flist);
@@ -288,7 +291,7 @@ void CRadCorr::iterByNumbers(int iters)
 {
     for(int i = 1; i <= iters; ++i)
     {
-        init_model();
+        //init_model();
 
         for(auto &s : data_sets)
         {
@@ -315,7 +318,7 @@ void CRadCorr::iterByPrecision()
 
     while(iter)
     {
-        init_model();
+        //init_model();
 
         for(auto &s : data_sets)
         {
@@ -772,7 +775,7 @@ inline double CRadCorr::from_model(const double &E0, const double &Eb)
 void CRadCorr::calculateXI(DataSet &s)
 {
     // formula from STEIN, but old and probably wrong estimation
-    double xi = (PI*ELECM/2/ALPHA)*(s.radl_before + s.radl_after);
+    double xi = (cana::pi*cana::ele_mass/2/cana::alpha)*(s.radl_before + s.radl_after);
     xi /= (target_Z + __eta(target_Z));
     xi /= log(183*std::pow(target_Z, -1./3.));
 
@@ -851,7 +854,7 @@ inline double CRadCorr::__Q2(double _E, double _Epr)
 // log(Q2/m2) for E and E', used inline __Q2
 inline double CRadCorr::__log_Q2m2(double _E, double _Epr)
 {
-    return log(__Q2(_E, _Epr)/ELECM/ELECM);
+    return log(__Q2(_E, _Epr)/cana::ele_mass/cana::ele_mass);
 }
 
 // phi
@@ -885,7 +888,7 @@ inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
     if(peak_approx)
         DHO += -0.5*Log2EsEp;               // Correction to peaking approx. ?
 
-    DHO *= ALPHA/PI;                        // common factor
+    DHO *= cana::alpha/cana::pi;                        // common factor
 
     return exp(DHO)/_gamma_t;
 }
@@ -897,7 +900,7 @@ inline double CRadCorr::__btr(double _E, double _Epr)
     if(!internal_RC)
         return 0.;
 
-    return ALPHA/PI*(__log_Q2m2(_E, _Epr) - 1.);
+    return cana::alpha/cana::pi*(__log_Q2m2(_E, _Epr) - 1.);
 }
 
 // Probability function I(E0, E, t)
@@ -1017,7 +1020,7 @@ void CRadCorr::number_operation(const std::string &key, T &val)
     while(operations.size())
     {
         std::string op = ConfigParser::trim(operations.front(), " \t");
-        operations.pop();
+        operations.pop_front();
         try {
             double number = stod(op.substr(1));
             if(op.at(0) == '+') {

@@ -5,10 +5,9 @@
 #include "ConfigParser.h"
 #include "TF1.h"
 #include "TFormula.h"
+#include "canalib.h"
 
-#define PI 3.14159265359
 
-using namespace cana;
 
 CEstimator::CEstimator(const std::string &path)
 : formula(nullptr), fine_step_size(0.01), coarse_step_size(1.)
@@ -347,7 +346,7 @@ double CEstimator::Evaluate(const double &factor)
         for(size_t i = 0; i < data.size(); ++i)
             result += p(0, i)*p(0, i)*M_weight(i, i); // faster method for diagonal matrix
     } else {
-        result = p*M_weight*transpose(p);
+        result = p*M_weight*cana::transpose(p);
     }
 
     // penalty matrix exists, calculate penalty term
@@ -370,7 +369,7 @@ double CEstimator::Evaluate(const double &factor)
             for(size_t i = 0; i < parameters.size(); ++i)
                 result += b(0, i)*b(0, i)*M_penalty(i, i);
         } else {
-            result += b*M_penalty*transpose(b);
+            result += b*M_penalty*cana::transpose(b);
         }
     }
 
@@ -528,7 +527,7 @@ double CEstimator::GetNLL_Gaussian()
     }
 
     result = log(result/(data.size() - parameters.size()) + 1.);
-    return data.size()*(result + log(2.*PI) + 1.) - parameters.size();
+    return data.size()*(result + log(2.*cana::pi) + 1.) - parameters.size();
 }
 
 // Akaike Information Criterion L* + 2m
@@ -558,5 +557,7 @@ double CEstimator::GetHannanCriterion(const double &c)
 // F_M is Fisher information matrix, to be implemented
 double CEstimator::GetKashyapCriterion(const CMatrix &F_M)
 {
-    return GetNLL_Gaussian() + parameters.size()*log((double)data.size()/2./PI) + log(abs(det(F_M)));
+    return GetNLL_Gaussian()
+           + parameters.size()*log((double)data.size()/2./cana::pi)
+           + log(abs(cana::det(F_M)));
 }

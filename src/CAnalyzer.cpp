@@ -57,7 +57,7 @@ void CAnalyzer::ReadData(const std::string &path,
         // check data taking criteria
         if(cri_col >= 0 &&
            cri_col < (int)row.size() &&
-           std::abs(row.at(cri_col).Double() - cri_val) > diff)
+           std::fabs(row.at(cri_col).Double() - cri_val) > diff)
             continue;
 
         for(size_t i = 0; i < row.size(); ++i)
