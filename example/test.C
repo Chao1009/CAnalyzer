@@ -108,6 +108,14 @@ void matrix_test()
 */
 }
 
+void cana_test()
+{
+    cout << cana::double2int(-123.6)
+         << ", "
+         << cana::double2int(-12345678.9)
+         << endl;
+}
+
 double quad(const double &x)
 {
     return x*x;

@@ -252,6 +252,19 @@ namespace cana
 
         return false;
     }
+
+    // a fast double to int conversion from Lua
+    // magical number is 2^51 + 2^52, it pushes double to the range of 2^52 ~ 2^53,
+    // within this range, the mantissa part is exactly the same as an integer
+    // it will be safe to simply cast it to a 32-bit integer
+    // Assumed little endian here, change i[0] to i[1] for big endian
+    union i_cast {double d; int i[2];};
+    inline int double2int(double d)
+    {
+        volatile union i_cast u;
+        u.d = d + 6755399441055744.0;
+        return u.i[0];
+    }
 };
 
 #endif
