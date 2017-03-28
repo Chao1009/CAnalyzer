@@ -160,7 +160,7 @@ void function_test()
     cout << cana::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
 }
 
-void model_wrapper_test()
+void model_wrapper_test(double energy, double angle, double nu_min, double nu_max)
 {
     double Z = 2.0, A = 3.0, Q2 = 1.0, W2 = 0.5;
     double f1, f2, rc;
@@ -169,12 +169,18 @@ void model_wrapper_test()
     Bosted_f1f2qe09(Z, A, Q2, W2, &f1, &f2);
     cout << f1 << ", " << f2 << endl;
 
+    ofstream outf("test_model.dat");
     double xs;
-    for(double nu = 1.0; nu <= 1000.0; nu += 1.0)
+    for(double nu = nu_min; nu <= nu_max; nu += 1.0)
     {
-        Bosted_xs(Z, A, 1147, 1147 - nu, 9.03/cana::rad_deg, &xs);
+        Bosted_xs(Z, A, energy, energy - nu, angle*cana::deg_rad, &xs);
         cout << "BST: " << nu << ", " << xs << endl;
-        QFS_xs(Z, A, 1147, 1147 - nu, 9.03/cana::rad_deg, &xs);
+        outf << setw(8) << nu
+             << setw(20) << xs
+             << setw(20) << 0
+             << setw(20) << 0
+             << endl;
+        QFS_xs(Z, A, energy, energy - nu,angle*cana::deg_rad, &xs);
         cout << "QFS: " << nu << ", " << xs << endl;
     }
 }
@@ -208,7 +214,7 @@ void radcor_test()
     else
         cout << "OFF" << endl;
 
-//    rad_cor.Radiate();
-    rad_cor.RadiativeCorrection(1);
+    rad_cor.Radiate();
+//    rad_cor.RadiativeCorrection(1);
     rad_cor.SaveResult("radcor_out.dat");
 }

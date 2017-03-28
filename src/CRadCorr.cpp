@@ -9,6 +9,7 @@
 
 // constructor
 CRadCorr::CRadCorr()
+: model_scale(1.0), model_shift(0.0)
 {
     // place holder
 }
@@ -767,7 +768,8 @@ inline double CRadCorr::from_model(const double &E0, const double &Eb)
 {
     // bosted model
     double cxsn;
-    QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    //QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    Bosted_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
     return cxsn*model_scale;
 }
 

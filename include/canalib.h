@@ -14,6 +14,8 @@ namespace cana
     const static double rad_deg = 57.2957795131;    // rad to degree
     const static double deg_rad = 0.01745329252;    // degree to rad
     const static double ele_mass = 0.510998918;     // MeV
+    const static double proton_mass = 938.272046;   // MeV
+    const static double neutron_mass = 939.5654133; // MeV
     const static double hbarc = 197.326968;         // hbar*c (MeV*fm)
     const static double amu = 931.494043;           // MeV per amu
 
