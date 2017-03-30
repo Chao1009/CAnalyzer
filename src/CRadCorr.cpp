@@ -911,8 +911,7 @@ inline double CRadCorr::__btr(double _E, double _Epr)
 inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
 {
     double _dE = _E0 - _E;
-    double _v = _dE/_E0;
-    return _bt/cana::gamma(1. + _bt)*std::pow(_v, _bt)/_dE*(__phi(_v) + _XI/2./_dE);
+    return std::pow(_dE/_E0, _bt) / cana::gamma(1. + _bt) * (__phi(_dE/_E0)*_bt + _XI/_dE)/_dE;
 }
 
 // read experimental data in the format line by line
