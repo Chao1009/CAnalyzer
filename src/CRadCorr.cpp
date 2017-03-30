@@ -372,15 +372,14 @@ void CRadCorr::iterByPrecision()
 // ***by Randy Roy Whitney, Phys. Rev. C 9, 2230 - 2235 (1974)                  
 //------------------------------------------------------------------------------
 // MODIFIED RADCOR - 01/29/2003                                                 
-// ***by K. Slifer, Temple University, 01/29/03                                 
+// ***by K. Slifer, Temple University                                           
 // downloadable at  http://www.jlab.org/~slifer/codes.html                      
 //------------------------------------------------------------------------------
 // MODIFIED RADCOR - 04/01/2007                                                 
 // ***by Jaideep Singh                                                          
 //========================LATEST CHANGES========================================
 // 1. Adapted the code in C++                                                   
-// 2. Replaced B(z) with analytical form                                        
-// 3. Corrected the calculation in cross section interpolation                  
+// 2. Corrected the calculation in cross section interpolation                  
 // ***by Chao Peng, Duke University, 11/8/2016                                  
 //========================REFERENCES============================================
 // MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
@@ -501,8 +500,7 @@ double CRadCorr::fep(const double &Epx)
 // 1. Adapted the code in C++                                                   
 // 2. Now get cross section from interpolation of input data instead of model   
 // 3. Add external radiative correction part                                    
-// 4. Replaced B(z) with analytical form                                        
-// 5. Using exponentialted higher order term and gamma term in Fbar calculation 
+// 4. Using exponentialted higher order term and gamma term in Fbar calculation 
 // ***by Chao Peng, Duke University, 11/8/2016                                  
 //========================REFERENCES============================================
 // MOTS69    Radiative Corrections to Elastic and Inelastic ep and mu-p         
@@ -631,6 +629,7 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 
     // less than the lowest energy we have
     if(E0 < data_sets.at(0).energy) {
+        // extrapolate
         return interp(data_sets.at(0), weight)*F_mott/E0/E0;
         //return from_model(E0, Eb);
     // within the energy range in spectrum
