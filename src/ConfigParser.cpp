@@ -160,6 +160,7 @@ bool ConfigParser::ParseAll()
 
 // parse a input string, trim the white space and split the string into elements
 // by defined splitters, the elements will also be trimmed
+// NOTICE: comments between a pair of marks are erased before input
 int ConfigParser::ParseString(const string &line)
 {
     deque<string> eles = split(line.c_str(), getCommentPoint(line), splitters);
@@ -442,17 +443,32 @@ string ConfigParser::comment_out(const string &str, const string &c)
     return str.substr(0, commentBegin);
 }
 
-// comment out between pairs
-// return false if no pair found
+// comment out between a pair of comment marks
+// erase the comment part and return true if comment found, return false else
+// NOTICE: does not support nested structure of comment marks
 bool ConfigParser::comment_between(string &str, const string &open, const string &close)
 {
-    int pos1, pos2;
-    if(!find_pair(str, open, close, pos1, pos2)) {
+    // sanity check
+    if(open.empty() || close.empty())
         return false;
-    } else {
-        str.erase(pos1, pos2 - pos1 + close.size());
-        return true;
+
+    // find the openning comment mark
+    size_t pos1 = str.find(open);
+    if(pos1 == string::npos)
+        return false;
+
+    // find the closing comment mark
+    size_t pos2 = pos1;
+    // marks must not be overlapped
+    while(pos2 < pos1 + open.size())
+    {
+        pos2 = str.find(close, pos2);
+        if(pos2 == string::npos)
+            return false;
     }
+
+    str.erase(pos1, pos2 + close.size() - pos1);
+    return true;
 }
 
 // trim all the characters defined as white space at both ends
@@ -656,8 +672,8 @@ bool ConfigParser::strcmp_case_insensitive(const string &str1, const string &str
     return true;
 }
 
-// find the first pair position in a string, it will return the most inner pair
-// if the first pair is a mult-layer structure
+// find the first pair position in a string
+// it will return the most inner pair if the first pair was in a nested structure
 bool ConfigParser::find_pair(const string &str,
                              const string &open, const string &close,
                              int &open_pos, int &close_pos)
@@ -671,7 +687,7 @@ bool ConfigParser::find_pair(const string &str,
     return true;
 }
 
-// find pair position in a string
+// find all pair positions in a string
 vector<pair<int, int>> ConfigParser::find_pairs(const string &str,
                                                 const string &op,
                                                 const string &cl)

@@ -415,7 +415,8 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
     // iteration on data points
     for(auto &point : s.data)
     {
-        std::cout << count++ << "/" << s.data.size() << "\r" << std::flush;
+        std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
+                  << std::flush;
         point_init(point);
 
         // components of SIGRAD
@@ -458,7 +459,7 @@ void CRadCorr::radcor(DataSet &s, bool radiate)
             point.born = (point.rad - (SIGBEF+SIGAFT)/s.weight_mott)/SIGLOW;
         }
     }
-    std::cout << count << "/" << s.data.size() << std::endl;
+    std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
 }
 
 // for integral along dEs
@@ -521,7 +522,8 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
     // iteration on data points
     for(auto &point : s.data)
     {
-        std::cout << count++ << "/" << s.data.size() << "\r" << std::flush;
+        std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
+                  << std::flush;
         point_init(point);
 
         // components of SIGRAD
@@ -572,7 +574,7 @@ void CRadCorr::xyrad2d(DataSet &s, bool radiate)
             point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/s.weight_mott)/sgl_both;
         }
     }
-    std::cout << count << "/" << s.data.size() << std::endl;
+    std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
 
 }
 
@@ -739,7 +741,7 @@ void CRadCorr::find_model_scale(const DataSet &mset)
     const DataPoint &mpoint = mset.data.at(ip);
 
     max_xs = 0.;
-    double cxsn = 0, max_nu = 0.;
+    double cxsn = 0; //, max_nu = 0.;
     // we search the QE peak in the model for a +-20 MeV range
     for(double nu = std::max(5., mpoint.nu - 20.); nu < mpoint.nu + 20.; nu += 1.0)
     {
@@ -747,12 +749,13 @@ void CRadCorr::find_model_scale(const DataSet &mset)
         if(max_xs < cxsn)
         {
             max_xs = cxsn;
-            max_nu = nu;
+            //max_nu = nu;
         }
     }
 
     model_scale = mpoint.born*mset.weight_mott/max_xs;
-    model_shift = mpoint.nu - max_nu;
+    // do not apply shift now, need more study
+//    model_shift = mpoint.nu - max_nu;
 
     std::cout << "Determined model scale and shift from spectrum at "
               << mset.energy << " MeV. "
@@ -767,8 +770,8 @@ inline double CRadCorr::from_model(const double &E0, const double &Eb)
 {
     // bosted model
     double cxsn;
-    //QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
-    Bosted_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    //Bosted_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
     return cxsn*model_scale;
 }
 
@@ -886,8 +889,7 @@ inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
     double DHO = 2.*(3./4.*LogQ2m2 - 1.);   // vertex correction
     DHO += 2.*(LogQ2m2/3. - 5./9.);         // vacuum correction
     DHO += Schwinger;                       // Schwinger term, angle dependent
-    if(peak_approx)
-        DHO += -0.5*Log2EsEp;               // Correction to peaking approx. ?
+    DHO += -0.5*Log2EsEp;                   // Correction to angle peaking approx.
 
     DHO *= cana::alpha/cana::pi;                        // common factor
 
