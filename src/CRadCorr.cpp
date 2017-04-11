@@ -58,7 +58,7 @@ void CRadCorr::Configure(const std::string &path)
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    angle *= cana::deg_rad;
+    angle *= cana::deg2rad;
     target_M = target_A * cana::amu;
     sin2 = sin(angle/2.)*sin(angle/2.);
     cos2 = cos(angle/2.)*cos(angle/2.);
@@ -292,7 +292,7 @@ void CRadCorr::iterByNumbers(int iters)
 {
     for(int i = 1; i <= iters; ++i)
     {
-        //init_model();
+        init_model();
 
         for(auto &s : data_sets)
         {
@@ -319,7 +319,7 @@ void CRadCorr::iterByPrecision()
 
     while(iter)
     {
-        //init_model();
+        init_model();
 
         for(auto &s : data_sets)
         {
@@ -632,8 +632,8 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     // less than the lowest energy we have
     if(E0 < data_sets.at(0).energy) {
         // extrapolate
-        return interp(data_sets.at(0), weight)*F_mott/E0/E0;
-        //return from_model(E0, Eb);
+        //return interp(data_sets.at(0), weight)*F_mott/E0/E0;
+        return from_model(E0, Eb);
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 0;

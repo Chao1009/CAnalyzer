@@ -173,14 +173,14 @@ void model_wrapper_test(double energy, double angle, double nu_min, double nu_ma
     double xs;
     for(double nu = nu_min; nu <= nu_max; nu += 1.0)
     {
-        Bosted_xs(Z, A, energy, energy - nu, angle*cana::deg_rad, &xs);
+        Bosted_xs(Z, A, energy, energy - nu, angle*cana::deg2rad, &xs);
         cout << "BST: " << nu << ", " << xs << endl;
         outf << setw(8) << nu
              << setw(20) << xs
              << setw(20) << 0
              << setw(20) << 0
              << endl;
-        QFS_xs(Z, A, energy, energy - nu,angle*cana::deg_rad, &xs);
+        QFS_xs(Z, A, energy, energy - nu,angle*cana::deg2rad, &xs);
         cout << "QFS: " << nu << ", " << xs << endl;
     }
 }
@@ -215,6 +215,6 @@ void radcor_test()
         cout << "OFF" << endl;
 
 //    rad_cor.Radiate();
-    rad_cor.RadiativeCorrection(1);
+    rad_cor.RadiativeCorrection();
     rad_cor.SaveResult("radcor_out.dat");
 }

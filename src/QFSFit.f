@@ -11,7 +11,7 @@
       real*8 sig, nu, E, TH, PF/130.0/, EPS/10.0/, EPSD/0.0/
       real*8 NORM/1D7/ ! convert the cross section to ub/MeV/sr
       REAL*8 PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       DATA PM/938.9187D0/                ! avg. proton/neutron mass in MeV
       DATA DM/1232.D0/                   ! Delta mass in MeV
       DATA ALPHA/7.297352568D-3/          ! 1.0D0/137.03599911D0
@@ -284,7 +284,7 @@
 ! THR in radians
       REAL*8 FUNCTION SIGMOT(E,THR)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       SIGMOT=(ALPHA*HBARC*COS(THR/2.D0)/2.D0/E/SIN(THR/2.D0)**2)**2
       RETURN
       END
@@ -310,7 +310,7 @@
       IMPLICIT REAL*8 (A-H,O-Z)
       LOGICAL Qdep
       COMMON/QDEPENDENCE/XPAR0,XPAR1,Qdep
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       NA   = INT(A)
 !---- defining reference kinematics
       GAMR = 120.D0
@@ -409,7 +409,7 @@
 ! all in MeV except TH (deg) and Z,A (unitless)
       REAL*8 FUNCTION SIG2N(E,TH,W,Z,A,PF)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
 !      PM=940.D0           ! js-i am assuming that this is supposed to be 939.D0
 !---- defining shape parameters
       A2=550.D0                                         ! MeV
@@ -470,7 +470,7 @@
 ! all in MeV except TH (deg) and A (unitless)
       REAL*8 FUNCTION SIGDEL(E,TH,W,A,EPSD,PF)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
 !      DM     = 1219.D0   ! js-i am asuuming that this is supposed to be 1232.D0
 !---- defining shape parameters
       AD1    = 700.D0                                  ! MeV
@@ -566,7 +566,7 @@
 ! all in MeV except TH (deg) and A (unitless)
       REAL*8 FUNCTION SIGR1(E,TH,W,A,PF)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       RM=1500.D0                                      ! MeV
 !---- defining shape parameters
       AR0=1000.D0                                     ! MeV
@@ -652,7 +652,7 @@
 ! all in MeV except TH (deg) and A (unitless)
       REAL*8 FUNCTION SIGR2(E,TH,W,A,PF)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       RM=1700.D0
 !---- defining shape parameters
       AR0=1200.D0
@@ -733,7 +733,7 @@
 ! TH must be degrees, A is unitless
       REAL*8 FUNCTION SIGX(E,TH,W,A)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
 !---- defining real photon parameters
 !---- in the paper, these are given by 100 ub and 54x10^3 ub*MeV
 !---- shouldn't they be per steradian as well? we'll assume this is the case...
@@ -812,7 +812,7 @@
 ! this causes an "error" of 0.1% for tau
       REAL*8 FUNCTION TAU(QMS)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       TAU  = QMS/4.0D0/PM**2
       RETURN
       END
@@ -877,7 +877,7 @@
 ! modified dipole form
       REAL*8 FUNCTION GEN(QMS,AP)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       GEN = -UN
       GEN = GEN * TAU(QMS)/( 1.0D0+5.6D0*TAU(QMS) )
       GEN = GEN * GEP(QMS,AP)
@@ -890,7 +890,7 @@
 ! simple dipole form
       REAL*8 FUNCTION GMP(QMS,AP)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       GMP  =  UP * GEP(QMS,AP)
       RETURN
       END
@@ -901,7 +901,7 @@
 ! simple dipole form
       REAL*8 FUNCTION GMN(QMS,AP)
       IMPLICIT REAL*8 (A-H,O-Z)
-      COMMON/CONSTANTS/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
+      COMMON/QFS_CONST/PM,DM,ALPHA,HBARC,PI,EMASS,UP,UN,PIMASS
       GMN  = UN * GEP(QMS,AP)
       RETURN
       END

@@ -13,7 +13,7 @@ CC            = gcc
 CXX           = g++
 FORTRAN       = gfortran
 CXXFLAGS      = -shared -pipe -std=c++11 -O2 -g -Wall -m64 -mtune=generic -fPIC
-FFLAGS        = -fPIC
+FFLAGS        = -fPIC -ffixed-line-length-none
 INCPATH       = -Iinclude -I$(ROOTSYS)/include
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -53,11 +53,16 @@ CXX_SOURCES   = canalib \
                 CRadCorr \
                 CAnalyzer \
                 CMatrix \
-                CEstimator
+                CEstimator \
+				CElasTails \
+				CHe3Elas
 
 F_SUFFIX      = f
 F_SOURCES     = BostedFit \
-                QFSFit
+                QFSFit \
+                rtails \
+				sub_poltail \
+				sub_math
 
 
 CXX_OBJECTS   = $(addprefix $(OBJECTS_DIR)/, $(CXX_SOURCES:=.cpp.o))
