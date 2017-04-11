@@ -18,7 +18,7 @@ extern "C"
     // ang : scattering angle in degree
     // rlin : radiation length before
     // rlout : radiation length after
-    // sigrad : OUTPUT, cross section in nb/MeV/sr
+    // sigrad : OUTPUT, cross section in ub/MeV/sr
     void rtails_rad_cxsn(double es, double ep, double ang, double rlin, double rlout,
                          double *sigrad);
 }
