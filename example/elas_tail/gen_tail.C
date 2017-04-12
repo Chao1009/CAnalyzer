@@ -10,10 +10,8 @@ void tail_test(int energy = 1147, double angle = 9.03)
     string conf_folder = to_string(int(angle + 0.5)) + "degs/";
     string conf_file = "configs/" + conf_folder + to_string(energy) + ".conf";
 
-    CElasTails eltail;
-    eltail.Configure(conf_file);
-
-    auto model = eltail.GetModel();
+    CHe3Elas model;
+    model.Configure(conf_file);
 
     TGraph *g1 = new TGraph();
     TGraph *g2 = new TGraph();

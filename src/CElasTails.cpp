@@ -56,11 +56,15 @@ void CElasTails::Configure(const std::string &path)
     fine_range = getDefConfig<double>("Fine Range", 50.0);
     finer_range = getDefConfig<double>("Finer Range", 15.0);
 
-    bool user_xi = getDefConfig<bool>("User Defined XI", true);
-    double xi_before = getDefConfig<double>("XI Before", 0.007417);
-    double xi_after = getDefConfig<double>("XI After", 0.1069);
-    bool polarized = getDefConfig<bool>("Polarized", false);
-    int pol_angle = getDefConfig<int>("Polarization Angle", 180);
+    std::string file;
+    file = getDefConfig<std::string>("Collimator File", "coll_setup/coll_9deg.txt");
+    setupColl(file);
+
+    file = getDefConfig<std::string>("Acceptance File", "cuts/tight/9degs/cuts_1143.inp");
+    acpt.Read(file);
+
+    // pass this file to the model
+    he3_model.Configure(path);
 
     // set collisional loss to 0 if it is turned off
     if(!col_loss) {
@@ -68,16 +72,6 @@ void CElasTails::Configure(const std::string &path)
         deltap = 0.;
     }
 
-    // init elastic He3 model
-    he3_model.Configure(GetConfig<std::string>("Radiation Method Config"));
-    he3_model.Initialize(user_xi, xi_before, xi_after, polarized, pol_angle);
-
-    std::string file;
-    file = getDefConfig<std::string>("Collimator File", "coll_setup/coll_9deg.txt");
-    setupColl(file);
-
-    file = getDefConfig<std::string>("Acceptance File", "cuts/tight/9degs/cuts_1143.inp");
-    acpt.Read(file);
 }
 
 void CElasTails::setupColl(const std::string &path)

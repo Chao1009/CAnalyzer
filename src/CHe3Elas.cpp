@@ -53,6 +53,14 @@ void CHe3Elas::Configure(const std::string &path)
     delta2 = getDefConfig<double>("Delta2", 0.5);
     n_sim = getDefConfig<int>("Min Number of Simpson Bins", 10000);
     sim_step = getDefConfig<double>("Simpson Step Size", 0.1);
+
+    user_xi = getDefConfig<bool>("User Defined XI", true);
+    xi_before = getDefConfig<double>("XI Before", 0.007417);
+    xi_after = getDefConfig<double>("XI After", 0.1069);
+    polarized = getDefConfig<bool>("Polarized", false);
+    pol_angle = getDefConfig<int>("Polarization Angle", 180);
+
+    rtails_init(user_xi, xi_before, xi_after, polarized, pol_angle);
 }
 
 // initialize
