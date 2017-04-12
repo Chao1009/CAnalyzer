@@ -34,7 +34,7 @@ private:
 
 private:
     double delta1, delta2, sin2, cos2, Schwinger;
-    double BTB, BTA, Bz, GAMT, sim_step, xi_before, xi_after;
+    double BTB, BTA, Bz, GAMT, sim_step, xi_before, xi_after, xi_factor;
     int n_sim, pol_angle;
     bool user_xi, polarized, xy_method;
 };

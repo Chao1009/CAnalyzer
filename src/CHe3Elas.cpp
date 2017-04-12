@@ -60,6 +60,10 @@ void CHe3Elas::Configure(const std::string &path)
     polarized = getDefConfig<bool>("Polarized", false);
     pol_angle = getDefConfig<int>("Polarization Angle", 180);
 
+    xi_factor = (cana::pi*cana::ele_mass/2/cana::alpha)
+              / (_target_Z + __eta(_target_Z))
+              / log(183*std::pow(_target_Z, -1./3.));
+
     rtails_init(user_xi, xi_before, xi_after, polarized, pol_angle);
 }
 
@@ -156,6 +160,11 @@ double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta
     // update radiation lengths and gamma_t, it is needed by Fbar
     BTB = radl_before*Bz, BTA = radl_after*Bz;
     GAMT = cana::gamma(1. + BTB) * cana::gamma(1. + BTA);
+
+    if(!user_xi) {
+        xi_before = radl_before*xi_factor;
+        xi_after = radl_after*xi_factor;
+    }
 
     // singularity parts
     double Epmax = __Ep_max(Es), Esmin = __Es_min(Ep);
