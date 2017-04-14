@@ -16,7 +16,6 @@ const static double __gauss[] = {0.1306, 0.1169, 0.938, 0.674, 0.434, 0.250,
                                  0.129, 0.0598, 0.0248, 0.00921, 0.00306, 0.000912};
 
 CElasTails::CElasTails()
-: Mtarg(3.0160293097*cana::amu)
 {
     // place holder
 }
@@ -35,10 +34,6 @@ void CElasTails::Configure(const std::string &path)
     scat_angle = getDefConfig<double>("Scattering Angle", 9.03);
     nu_min = getDefConfig<double>("Minimum Nu", 10.0);
     nu_max = getDefConfig<double>("Maximum Nu", 780.0);
-
-    col_loss = getDefConfig<bool>("Collisional Loss", true);
-    deltas = getDefConfig<double>("Loss Before", 0.136);
-    deltap = getDefConfig<double>("Loss After", 2.054);
 
     radl_in = getDefConfig<double>("Radiation Length In", 0.002073);
     radl_out = getDefConfig<double>("Radiation Length Out", 0.00876);
@@ -65,13 +60,6 @@ void CElasTails::Configure(const std::string &path)
 
     // pass this file to the model
     he3_model.Configure(path);
-
-    // set collisional loss to 0 if it is turned off
-    if(!col_loss) {
-        deltas = 0.;
-        deltap = 0.;
-    }
-
 }
 
 void CElasTails::setupColl(const std::string &path)
@@ -128,7 +116,7 @@ void CElasTails::Generate()
                 continue;
             }
 
-            rtails(flag, ang, lc);
+            simElasTails(flag, ang, lc);
         }
     }
     std::cout << std::endl;
@@ -199,20 +187,10 @@ int CElasTails::calcCollLength(const double &z, const double &phi, double &lc)
     }
 }
 
-void CElasTails::rtails(int flag, double angle, double lc)
+void CElasTails::simElasTails(int flag, double angle, double lc)
 {
-    // collision loss corrections
-    double Es = in_energy;
-    double Esp = Es - deltas;
-
-    // Es' = Es - delta_s
-    // Ep' = Ep + delta_p
-    // nu = Es' - Ep'
-    //    = (Es - delta_s) - (Ep + delta_p)
-
     // kinematics
     double theta = angle*cana::deg2rad;
-    double nu_elas = Esp - (Esp/(1. + 2.*Esp*std::pow(sin(theta/2.),2)/Mtarg) + deltap);
 
     // compute radiation length with collimator
     double rloutp = radl_out + radl_wall/10.61/sin(theta) + lc/0.35;
@@ -220,14 +198,10 @@ void CElasTails::rtails(int flag, double angle, double lc)
     double nu_in = nu_min;
     while(nu_in <= nu_max)
     {
-        // allowed kinematics
-        if(nu_in > nu_elas)
-        {
-            double Ep = Esp - nu_in - deltap;
-            // convert ub/MeV/sr to nb/MeV/sr
-            double sigrad = 1000.*he3_model.GetRadXS(Es, Ep, theta, radl_in, rloutp);
+        // convert ub/MeV/sr to nb/MeV/sr
+        double sigrad = 1000.*he3_model.GetRadXS(in_energy, in_energy - nu_in, theta, radl_in, rloutp);
+        if(sigrad > 0.)
             fillData(flag, nu_in, sigrad, lc/0.35, angle);
-        }
 
         // set nu_in for the next step
         if(nu_in + 0.9*finer_step <= finer_range)

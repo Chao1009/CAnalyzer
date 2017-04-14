@@ -154,6 +154,12 @@ double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta
     // update angle dependent terms
     sin2 = std::pow(sin(theta/2.), 2);
     cos2 = 1. - sin2;
+
+    // check allowed kinematics
+    double Epmax = __Ep_max(Es), Esmin = __Es_min(Ep);
+    if(Ep > Epmax)
+        return 0.;
+
     // Schwinger term will be used in internal radiation
     Schwinger = cana::pi*cana::pi/6 - cana::spence(cos2);
 
@@ -167,7 +173,6 @@ double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta
     }
 
     // singularity parts
-    double Epmax = __Ep_max(Es), Esmin = __Es_min(Ep);
     double Fbar = __F_bar(Es, Ep, GAMT);
     double BTR = __btr(Es, Ep);
 

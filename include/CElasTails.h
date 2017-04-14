@@ -64,7 +64,7 @@ private:
                   const double &tail,
                   const double &rlcoll,
                   const double &phi);
-    void rtails(int flag, double angle, double rloutp);
+    void simElasTails(int flag, double angle, double rloutp);
     DataPoint punchThrough(const double &nu,
                            const double &tail,
                            const double &phi,
@@ -74,9 +74,8 @@ private:
     Acceptance acpt;
     DataSet dset;
 
-    double in_energy, scat_angle, nu_min, nu_max, deltas, deltap, Mtarg;
+    double in_energy, scat_angle, nu_min, nu_max;
     double radl_wall, radl_in, radl_out;
-    bool col_loss;
     // target collimator geometry
     // Z-position for upstream and downstream target window (cm)
     double alpha_d, alpha_u, ad_x, ad_y, au_x, au_y, ld, lu;

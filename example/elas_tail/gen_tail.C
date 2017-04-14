@@ -5,7 +5,7 @@
 
 using namespace std;
 
-void tail_test(int energy = 1147, double angle = 9.03)
+void tail_test(int energy = 1147, double angle = 9.03, double rli = 0.002071, double rlo = 0.06293)
 {
     string conf_folder = to_string(int(angle + 0.5)) + "degs/";
     string conf_file = "configs/" + conf_folder + to_string(energy) + ".conf";
@@ -18,20 +18,22 @@ void tail_test(int energy = 1147, double angle = 9.03)
     TGraph *g3 = new TGraph();
 
     double tarm = 3.015*cana::amu;
-    double sin2 = pow(sin(angle*cana::deg2rad), 2);
+    double sin2 = pow(sin(angle*cana::deg2rad/2.), 2);
     double Ep_el = energy/(1. + 2.*energy*sin2/tarm);
+    double Ep_step = 1.0;
+    double Ep_max = int(Ep_el - 0.01*energy);
 
-    for(double Ep = Ep_el; Ep > energy*0.3; Ep -= 1.0)
+    for(double Ep = Ep_max; Ep > energy*0.3; Ep -= Ep_step)
     {
-        g1->SetPoint(g1->GetN(), energy - Ep, 1000.*model.GetRadXS(energy, Ep, angle*cana::deg2rad, 0., 0.));
+        g1->SetPoint(g1->GetN(), energy - Ep, 1000.*model.GetRadXS(energy, Ep, angle*cana::deg2rad, rli, rlo));
     }
 
     model.SetConfigValue("Use X. Yan's Formula", false);
     model.Configure();
 
-    for(double Ep = Ep_el; Ep > energy*0.3; Ep -= 1.0)
+    for(double Ep = Ep_max; Ep > energy*0.3; Ep -= Ep_step)
     {
-        g2->SetPoint(g2->GetN(), energy - Ep, 1000.*model.GetRadXS(energy, Ep, angle*cana::deg2rad, 0., 0.));
+        g2->SetPoint(g2->GetN(), energy - Ep, 1000.*model.GetRadXS(energy, Ep, angle*cana::deg2rad, rli, rlo));
     }
 
     TCanvas *c1 = new TCanvas("elastic tail","elastic tail",200,10,700,800);
@@ -57,7 +59,8 @@ void tail_test(int energy = 1147, double angle = 9.03)
     Double_t *y2 = g2->GetY();
     for(int i = 0; i < g1->GetN() && i < g2->GetN(); ++i)
     {
-        g3->SetPoint(i, energy - Ep_el + i*1.0, (y1[i] - y2[i])/y1[i]*100.);
+        if(y1[i] != 0.)
+            g3->SetPoint(i, energy - Ep_max + i*Ep_step, (y1[i] - y2[i])/y1[i]*100.);
     }
 
     c1->cd(2);
