@@ -268,6 +268,62 @@ namespace cana
         u.d = d + 6755399441055744.0;
         return u.i[0];
     }
+
+    // Check if a point is in a polygon
+    // Implementation of the method described by Dan Sunday
+    // Check http://geomalgorithms.com/a03-_inclusion.html for details
+    // helper function to determine if the point is at the left side of a line
+    // > 0 : (x,y) is at left of the line by (x0, y0) and (x1, y1)
+    // = 0 : on the line
+    // < 0 : right of the line
+    template<typename T>
+    inline T is_left(const T &x, const T &y,
+                     const T &x0, const T &y0, const T &x1, const T &y1)
+    {
+        return (x1 - x0) * (y - y0) - (x - x0) * (y1 - y0);
+    }
+
+    // input: A 2d point and the iterators of polygon vertices
+    //        Vertices order determine how the polygon is reconstructed
+    //        The polygon is assumed to be closed, the last boundary connects
+    //        its first and last vertices
+    // output: winding number, 0 means outside
+    template<class Iter, typename T>
+    int inside_polygon_2d(const T& point, Iter pv_beg, Iter pv_end)
+    {
+        int wn = 0;    // the  winding number counter
+
+        // loop through all edges of the polygon
+        Iter it_next = pv_beg;
+        it_next++;
+        for(Iter it = pv_beg; it != pv_end; it++, it_next++)
+        {
+            // last vertex, the boundary is formed between it and the first one
+            if(it_next == pv_end)
+                it_next = pv_beg;
+
+            // start y <= point.y
+            if(it->y <= point.y)
+            {
+                // upward crossing
+                if(it_next->y > point.y)
+                    // left of this boundary
+                    if(is_left(point.x, point.y, it->x, it->y, it_next->x, it_next->y) > 0)
+                        ++wn;
+            }
+            else
+            {
+                // downward crossing
+                if(it_next->y <= point.y)
+                    // right of this boundary
+                    if(is_left(point.x, point.y, it->x, it->y, it_next->x, it_next->y) < 0)
+                        --wn;
+            }
+        }
+
+        // wn is positivie for counter clockwise and negative for clockwise
+        return abs(wn);
+    }
 };
 
 #endif

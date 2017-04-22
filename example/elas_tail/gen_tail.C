@@ -74,7 +74,7 @@ void gen_tail()
                             2135, 2845, 4209};
     vector<string> conf_folder = {"9degs/", "9degs/", "9degs/", "9degs/", "9degs/",
                                   "6degs/", "6degs/", "6degs/"};
-    for(size_t i = 0; i < energies.size(); ++i)
+    for(size_t i = 0; i < 1 /*energies.size()*/; ++i)
     {
         int energy = energies.at(i);
         string folder = conf_folder.at(i);

@@ -56,10 +56,6 @@ public:
 
         // constructors
         DataSet() {};
-        DataSet(double e, double er, double no, bool m = true)
-        : energy(e), radl_before(0), radl_after(0), coll_before(0), coll_after(0),
-          error(er), normalization(no), non_rad(m)
-        {};
         DataSet(double e, double rb, double ra, double cb, double ca, double er, double no, bool m = false)
         : energy(e), radl_before(rb), radl_after(ra), coll_before(cb), coll_after(ca),
           error(er), normalization(no), non_rad(m)
@@ -76,17 +72,12 @@ public:
     virtual ~CRadCorr();
 
     void Configure(const std::string &path);
-    void ReadExpData(const char *path);
-    void ReadExpData(const std::string &path);
-    void ReadExpData(const std::vector<std::string> &filelist);
     bool SanityCheck();
     void RadiativeCorrection(int iters = 0);
     void Radiate();
     void SaveResult(const std::string &path);
 
 private:
-    void iterByNumbers(int iters);
-    void iterByPrecision();
     void radcor(DataSet &set, bool radiate = false);
     void xyrad2d(DataSet &set, bool radiate = false);
     double fes(const double &Es);
@@ -100,13 +91,14 @@ private:
     void init_model();
     void find_model_scale(const DataSet &mset);
     double from_model(const double &E0, const double &Eb);
-    void calculateXI(DataSet &set);
-    void readData(ConfigParser &p);
+    void readDataConf(const std::string &path);
+    void createDataSet(const std::string &config, const std::string &path = "");
+    void readData(DataSet &dset, const std::string &path, const std::string &label);
     template<typename T>
     void number_operation(const std::string &key, T &val);
 
     // some lines
-    void spectrum_init(DataSet &set);
+    void spectrum_init(DataSet &dset);
     void point_init(DataPoint &point);
     double __Ep_max(double Es);
     double __Es_min(double Ep);
@@ -117,6 +109,7 @@ private:
     double __F_bar(double E, double Epr, double gamma_t);
     double __btr(double E, double Epr);
     double __I(double E0, double E, double xi, double bt);
+    double __XI_Stein(double radl);
 
 private:
     std::vector<DataSet> data_sets;

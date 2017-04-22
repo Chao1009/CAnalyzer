@@ -3,6 +3,7 @@
 #include "ConfigParser.h"
 #include <iostream>
 #include <iomanip>
+#include <iterator>
 #include <algorithm>
 
 
@@ -34,7 +35,7 @@ void CRadCorr::Configure(const std::string &path)
     internal_RC = getDefConfig<bool>("Internal RC", true);
     external_RC = getDefConfig<bool>("External RC", true);
     user_defined_XI = getDefConfig<bool>("User Defined XI", true);
-    peak_approx = getDefConfig<bool>("Peaking Approximation", false);
+    peak_approx = getDefConfig<bool>("Energy Peaking Approximation", false);
 
     // calculation related
     iter_prec = getDefConfig<double>("Iteration Precision", 0.005);
@@ -76,90 +77,33 @@ void CRadCorr::Configure(const std::string &path)
     Bz = 4./3.*(1. + Bz);
 
     // read data files
-    std::string file_str = GetConfig<std::string>("Data File");
+    std::string file_str = GetConfig<std::string>("Data Config File");
     auto files = ConfigParser::split(file_str, ",");
 
-    std::vector<std::string> flist;
-    while(files.size())
+    for(auto &f : files)
     {
-        flist.push_back(ConfigParser::trim(files.front(), " \t"));
-        files.pop_front();
-    }
-    if(!flist.empty())
-        ReadExpData(flist);
-}
-
-// read one data file, see comments in readData() for format details
-void CRadCorr::ReadExpData(const char *path)
-{
-    std::vector<std::string> flist;
-    flist.emplace_back(path);
-    ReadExpData(flist);
-}
-
-void CRadCorr::ReadExpData(const std::string &path)
-{
-    std::vector<std::string> flist;
-    flist.push_back(path);
-    ReadExpData(flist);
-}
-
-// read several data files
-void CRadCorr::ReadExpData(const std::vector<std::string> &file_list)
-{
-    ConfigParser c_parser;
-
-    // clear data sets first
-    data_sets.clear();
-
-    for(auto &path: file_list)
-    {
-        if(!c_parser.OpenFile(path)) {
-            std::cout << "Cannot Open Data File "
-                      << "\"" << path << "\""
-                      << std::endl;
-            continue;
-        }
-
-        readData(c_parser);
-
-        c_parser.CloseFile();
+        readDataConf(f);
     }
 
     // sort data sets by energy
     std::sort(data_sets.begin(), data_sets.end(),
-              [] (const DataSet &set1, const DataSet &set2)
-              {
-                  return set1.energy < set2.energy;
-              });
+             [] (const DataSet &set1, const DataSet &set2)
+             {
+                 return set1.energy < set2.energy;
+             });
 
-    // sort data points by nu
-    for(auto &s : data_sets)
-    {
-        std::sort(s.data.begin(), s.data.end(),
-                  [] (const DataPoint &p1, const DataPoint &p2)
-                  {
-                    return p1.nu < p2.nu;
-                  });
-    }
-
-    // calculate collision thickness if not using users' input
-    if(!user_defined_XI) {
-        for(auto &s : data_sets)
-            calculateXI(s);
-    }
-
+    // show how many data sets are read-in
     std::cout << "Read " << data_sets.size() << " data sets."
               << std::endl;
 
-    for(auto &set : data_sets)
+    for(auto &dset : data_sets)
     {
-        std::cout << "Energy: " << std::setw(8) << set.energy
-                  << ",    DataPoints:" << std::setw(8) << set.data.size()
+        std::cout << "Energy: " << std::setw(8) << dset.energy
+                  << ",    DataPoints:" << std::setw(8) << dset.data.size()
                   << std::endl;
     }
-
 }
+
 
 // test some configuration values, warn some simple mistake
 bool CRadCorr::SanityCheck()
@@ -177,9 +121,9 @@ bool CRadCorr::SanityCheck()
     }
 
     bool radiated_data = false;
-    for(auto &set : data_sets)
+    for(auto &dset : data_sets)
     {
-        if(!set.non_rad) {
+        if(!dset.non_rad) {
             radiated_data = true;
             break;
         }
@@ -215,10 +159,57 @@ void CRadCorr::RadiativeCorrection(int iters)
     if(!SanityCheck())
         return;
 
-    if(iters > 0)
-        iterByNumbers(iters);
-    else
-        iterByPrecision();
+    bool end_by_prec = (iters <= 0)? true : false;
+
+    for(int iter = 1; (iter <= iters) || end_by_prec; ++iter)
+    {
+        //init_model();
+
+        // do radiative correction for all data sets
+        for(auto &dset : data_sets)
+        {
+            // skip Born Level data/model
+            if(dset.non_rad)
+                continue;
+
+            std::cout << "Iteration " << iter << ", spectrum E = " << dset.energy
+                      << std::endl;
+
+            // energy peaking or not
+            if(peak_approx)
+                radcor(dset);
+            else
+                xyrad2d(dset);
+        }
+
+        // after correction, check if this iteration reaches the precision
+        if(end_by_prec) {
+            // get maximum difference between current value and last iteration value
+            double max_rel_diff = 0.;
+            for(auto &dset : data_sets)
+            {
+                for(auto &point : dset.data)
+                {
+                    double rel_diff = fabs(1. - point.last/point.born);
+                    if(rel_diff > max_rel_diff)
+                        max_rel_diff = rel_diff;
+                }
+            }
+
+            // check if it should continue or not
+            if(max_rel_diff > iter_prec) {
+                std::cout << "Iteration " << iter << " is not converging within "
+                          << "the required precision = " << iter_prec*100. <<"%, "
+                          << "the maximum difference = " << max_rel_diff*100. << "%, "
+                          << "continue iterations..."
+                          << std::endl;
+            } else {
+                // Done the radiative correction
+                return;
+            }
+        }
+
+    }
 }
 
 // radiate data sets
@@ -261,22 +252,22 @@ void CRadCorr::SaveResult(const std::string &path)
            << std::setw(15) << "SYST. ERR."
 //           << std::setw(15) << "ITER. CHANGE"
            << std::endl;
-    for(auto &set : data_sets)
+    for(auto &dset : data_sets)
     {
-        if(set.non_rad)
+        if(dset.non_rad)
             continue;
 
-        for(auto &point : set.data)
+        for(auto &point : dset.data)
         {
-            double xsr = point.rad*set.weight_mott;
-            double xsb = point.born*set.weight_mott;
+            double xsr = point.rad*dset.weight_mott;
+            double xsb = point.born*dset.weight_mott;
 //            double xsl = point.last*set.weight_mott;
             double scale = xsb/xsr;
             double stat_err = point.stat*scale;
             double syst_err = point.syst*scale;
-            double rc_err = set.error*std::abs(xsb - xsr);
+            double rc_err = dset.error*std::abs(xsb - xsr);
             syst_err = sqrt(syst_err*syst_err + rc_err*rc_err);
-            output << std::setw(8) << set.energy
+            output << std::setw(8) << dset.energy
                    << std::setw(8) << point.nu
                    << std::setw(15) << xsr
                    << std::setw(15) << xsb
@@ -287,83 +278,6 @@ void CRadCorr::SaveResult(const std::string &path)
         }
     }
 }
-
-void CRadCorr::iterByNumbers(int iters)
-{
-    for(int i = 1; i <= iters; ++i)
-    {
-        init_model();
-
-        for(auto &s : data_sets)
-        {
-            // do nothing for non-radiated data
-            if(s.non_rad)
-                continue;
-
-            std::cout << "RC iteration: " << i << " of " << iters
-                      << ", spectrum E = " << s.energy
-                      << std::endl;
-            if(peak_approx)
-                radcor(s);
-            else
-                xyrad2d(s);
-        }
-    }
-}
-
-void CRadCorr::iterByPrecision()
-{
-    // do first iteration anyway
-    bool iter = true;
-    int i = 1;
-
-    while(iter)
-    {
-        init_model();
-
-        for(auto &s : data_sets)
-        {
-            // do nothing for non-radiated data
-            if(s.non_rad)
-                continue;
-
-            std::cout << "RC iteration: " << i
-                      << ", spectrum E = " << s.energy
-                      << std::endl;
-            if(peak_approx)
-                radcor(s);
-            else
-                xyrad2d(s);
-        }
-
-        // after correction, check if this iteration reaches the precision
-        iter = false;
-        for(auto &s : data_sets)
-        {
-            for(auto point : s.data)
-            {
-                double rel_diff = (point.born - point.last)/point.born;
-                // the rel. diff. comes from this iteration is larger than wanted
-                // precision
-                if(std::abs(rel_diff) > iter_prec)
-                {
-                    iter = true; // still need more iterations
-                    break; // no need to check other points
-                }
-            }
-
-            if(iter) {
-                std::cout << "Iteration is not converging within the precision = "
-                          << iter_prec << ", conitnue..."
-                          << std::endl;
-                break; // no need to check other sets
-            }
-        }
-
-        ++i;
-    }
-}
-
 
 //==============================================================================
 // radiative correction for one spectrum                                        
@@ -632,8 +546,8 @@ double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     // less than the lowest energy we have
     if(E0 < data_sets.at(0).energy) {
         // extrapolate
-        //return interp(data_sets.at(0), weight)*F_mott/E0/E0;
-        return from_model(E0, Eb);
+        return interp(data_sets.at(0), weight)*F_mott/E0/E0;
+        //return from_model(E0, Eb);
     // within the energy range in spectrum
     } else if (E0 <= data_sets.back().energy) {
         size_t i = 0;
@@ -775,18 +689,6 @@ inline double CRadCorr::from_model(const double &E0, const double &Eb)
     return cxsn*model_scale;
 }
 
-// calculate XI based on STEIN's formula
-void CRadCorr::calculateXI(DataSet &s)
-{
-    // formula from STEIN, but old and probably wrong estimation
-    double xi = (cana::pi*cana::ele_mass/2/cana::alpha)*(s.radl_before + s.radl_after);
-    xi /= (target_Z + __eta(target_Z));
-    xi /= log(183*std::pow(target_Z, -1./3.));
-
-    s.coll_before = xi/2;
-    s.coll_after = xi/2;
-}
-
 // spectrum based kinematics intialization
 inline void CRadCorr::spectrum_init(DataSet &s)
 {
@@ -797,8 +699,13 @@ inline void CRadCorr::spectrum_init(DataSet &s)
         // ignoring it introducing an error on a few percent level.
         BTB = s.radl_before*Bz;
         BTA = s.radl_after*Bz;
-        XIB = s.coll_before;
-        XIA = s.coll_after;
+        if(user_defined_XI) {
+            XIB = s.coll_before;
+            XIA = s.coll_after;
+        } else {
+            XIB = __XI_Stein(s.radl_before);
+            XIA = __XI_Stein(s.radl_after);
+        }
     } else {
         BTB = 0;
         BTA = 0;
@@ -915,103 +822,158 @@ inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
     return std::pow(_dE/_E0, _bt) / cana::gamma(1. + _bt) * (__phi(_dE/_E0)*_bt + _XI/_dE)/_dE;
 }
 
+// calculate XI based on Stein's formula
+double CRadCorr::__XI_Stein(double radl)
+{
+    // formula from Stein, but old and probably wrong estimation
+    double xi = (cana::pi*cana::ele_mass/2/cana::alpha);
+    xi /= (target_Z + __eta(target_Z));
+    xi /= log(183*std::pow(target_Z, -1./3.));
+
+    return xi*radl;
+}
+
+void CRadCorr::readDataConf(const std::string &path)
+{
+    std::ifstream inf(path);
+
+    if(!inf.is_open()) {
+        std::cout << "Cannot open data configuration file "
+                  << "\"" << path << "\", no data read-in."
+                  << std::endl;
+        return;
+    }
+
+    // read the whole file in
+    std::string buf;
+
+    inf.seekg(0, std::ios::end);
+    buf.reserve(inf.tellg());
+    inf.seekg(0, std::ios::beg);
+
+    buf.assign((std::istreambuf_iterator<char>(inf)), std::istreambuf_iterator<char>());
+    inf.close();
+
+    // remove typical comments
+    while(ConfigParser::comment_between(buf, "/*", "*/")) {;}
+    while(ConfigParser::comment_between(buf, "//", "\n")) {;}
+    while(ConfigParser::comment_between(buf, "#", "\n")) {;}
+
+    // find the data set info in brackets { }
+    auto pairs = ConfigParser::find_pairs(buf, "{", "}");
+    int last_end = 0;
+    for(auto &p : pairs)
+    {
+        std::string label = ConfigParser::trim(buf.substr(last_end, p.first - last_end), " \t\n");
+        if(ConfigParser::str_upper(label) == "DATASET") {
+            createDataSet(buf.substr(p.first + 1, p.second - p.first - 1), path);
+            last_end = p.second + 1;
+        }
+    }
+}
+
+template<typename T>
+inline void update_config(const ConfigObject &conf, const std::string &var, T &val)
+{
+    ConfigValue term = conf.GetConfigValue(var);
+    if(!term.IsEmpty())
+        val = term.Convert<T>();
+}
+
+// create a new data set based on configuration text
+void CRadCorr::createDataSet(const std::string &config, const std::string &path)
+{
+    ConfigObject conf_obj;
+
+    conf_obj.ReadConfigString(config);
+
+    ConfigValue Econf = conf_obj.GetConfigValue("Energy");
+    if(Econf.IsEmpty() || cana::is_in(Econf.Double(), data_sets.begin(), data_sets.end())) {
+        std::cerr << "Error: Missing energy information or there exists a data"
+                  << "set with the same energy in configuration: " << config
+                  << std::endl;
+        return;
+    }
+
+    // create a data set with default values
+    DataSet new_set(Econf.Double(),     // energy
+                    0., 0.,             // radiation length before and after
+                    0., 0.,             // collisional loss before and after
+                    0., 1.0);           // RC estimated error and normalization factor
+
+    new_set.weight_mott = F_mott/std::pow(new_set.energy, 2);
+
+    // connect data set variables to configurations
+    update_config(conf_obj, "Radiation Length Before", new_set.radl_before);
+    update_config(conf_obj, "Radiation Length After", new_set.radl_after);
+    update_config(conf_obj, "Collisional Loss Before", new_set.coll_before);
+    update_config(conf_obj, "Collisional Loss After", new_set.coll_after);
+    update_config(conf_obj, "RC Error", new_set.error);
+    update_config(conf_obj, "Born Level", new_set.non_rad);
+    update_config(conf_obj, "Normalization", new_set.normalization);
+
+    // read-in the data points in this set
+    std::string data_file, data_label;
+    update_config(conf_obj, "Data File", data_file);
+    update_config(conf_obj, "Data Label", data_label);
+
+    std::string dir = ConfigParser::decompose_path(path).dir;
+    readData(new_set, ConfigParser::form_path(dir, data_file), data_label);
+
+    // sort data points by nu
+    std::sort(new_set.data.begin(), new_set.data.end(),
+              [] (const DataPoint &p1, const DataPoint &p2)
+              {
+                  return p1.nu < p2.nu;
+              });
+
+    data_sets.emplace_back(std::move(new_set));
+}
+
 // read experimental data in the format line by line
 // comment marks are # and //
 // splitter can be tab, space and comma
 // additional white spaces (space and tab) will be trimmed
-// *data header*
-// *For non-radiated data*
-// energy, rel. error, norm
-// *For radiated data*
-// energy, rel. error, norm, radl bef, radl aft, coll thick bef, coll thick aft
-// *data*
-// energy
-// nu, cxsn, stat. error, syst. error
-// nu, cxsn, stat. error, syst. error
-// ......
-void CRadCorr::readData(ConfigParser &c_parser)
+// expected 4 ~ 5 columns (label can be neglected if input data_label is empty)
+// *label*, nu, cxsn, stat. error, syst. error
+void CRadCorr::readData(DataSet &dset, const std::string &path, const std::string &label)
 {
-    int set_idx = -1;
-    double energy, radl_bef, radl_aft, coll_bef, coll_aft, error, norm;
-    double nu, cxsn, stat, syst;
+    ConfigParser c_parser;
+
+    if(!c_parser.ReadFile(path)) {
+        std::cerr << "Cannot open file \"" << path << "\", no data points read "
+                  << "for data set at energy = " << dset.energy
+                  << std::endl;
+        return;
+    }
 
     while(c_parser.ParseLine())
     {
-        if (c_parser.NbofElements() == 4) { // new data points
-
-            if(set_idx == -1) {
-                std::cout << "Cannot determine which data set the data belong to "
-                          << "at line " << c_parser.LineNumber()
-                          << std::endl
-                          << "\"" << c_parser.CurrentLine() << "\""
-                          << std::endl;
+        // check if label agrees
+        if(c_parser.NbofElements() == 5) {
+            std::string plabel = c_parser.TakeFirst().String();
+            if(plabel != label)
                 continue;
-            }
-
-            DataSet &s = data_sets.at(set_idx);
-
-            c_parser >> nu >> cxsn >> stat >> syst;
-            // apply normalization
-            cxsn *= s.normalization/s.weight_mott;
-            stat *= s.normalization;
-            DataPoint new_point(nu, cxsn, stat, syst);
-            // calculate ep
-            new_point.Ep = s.energy - nu;
-            new_point.v = nu/s.energy;
-
-            s.data.push_back(std::move(new_point));
-
-        } else if(c_parser.NbofElements() == 1) { // data set indication
-
-            c_parser >> energy;
-            size_t i = 0;
-            // find the proper data set for inserting data points
-            for(; i < data_sets.size(); ++i)
-            {
-                if(data_sets.at(i).energy == energy) {
-                    set_idx = i;
-                    break;
-                }
-            }
-            // did not find the energy in data_sets
-            if(i >= data_sets.size()) {
-                std::cout << "Cannot find data set definition for energy "
-                          << energy
-                          << ", please make sure you add this energy in the data header"
-                          << std::endl;
-                set_idx = -1;
-            }
-
-        } else if(c_parser.NbofElements() == 3) { // new data set (non-radiated)
-
-            c_parser >> energy >> error >> norm;
-
-            DataSet new_set(energy, error, norm);
-            new_set.weight_mott = F_mott/energy/energy;
-
-            data_sets.push_back(std::move(new_set));
-
-        } else if(c_parser.NbofElements() == 7) { // new data set
-
-            c_parser >> energy >> error >> norm
-                     >> radl_bef >> radl_aft >> coll_bef >> coll_aft;
-
-            number_operation("Radiation Length Before", radl_bef);
-            number_operation("Radiation Length After", radl_aft);
-
-            DataSet new_set(energy, radl_bef, radl_aft, coll_bef, coll_aft, error, norm);
-            new_set.weight_mott = F_mott/energy/energy;
-
-            data_sets.push_back(std::move(new_set));
-
-        } else {
-            std::cout << "Skipped line " << c_parser.LineNumber()
-                      << ", format is unrecognized." << std::endl
-                      << "\"" << c_parser.CurrentLine() << "\""
-                      << std::endl;
         }
-    }
 
+        // check format
+        if(!c_parser.CheckElements(4))
+            continue;
+
+        // new data points
+        double nu, cxsn, stat, syst;
+        c_parser >> nu >> cxsn >> stat >> syst;
+        // apply normalization
+        cxsn *= dset.normalization/dset.weight_mott;
+        stat *= dset.normalization;
+
+        DataPoint new_point(nu, cxsn, stat, syst);
+        // calculate ep
+        new_point.Ep = dset.energy - nu;
+        new_point.v = nu/dset.energy;
+
+        dset.data.push_back(std::move(new_point));
+    }
 }
 
 template<typename T>
