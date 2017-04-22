@@ -858,40 +858,12 @@ inline double CRadCorr::__ice_coll(double thickness)
 
 void CRadCorr::readDataConf(const std::string &path)
 {
-    std::ifstream inf(path);
+    ConfigParser c_parser;
+    auto contents = c_parser.ReadFileInBlocks(path, "{", "}", "DATASET", false);
 
-    if(!inf.is_open()) {
-        std::cout << "Cannot open data configuration file "
-                  << "\"" << path << "\", no data read-in."
-                  << std::endl;
-        return;
-    }
-
-    // read the whole file in
-    std::string buf;
-
-    inf.seekg(0, std::ios::end);
-    buf.reserve(inf.tellg());
-    inf.seekg(0, std::ios::beg);
-
-    buf.assign((std::istreambuf_iterator<char>(inf)), std::istreambuf_iterator<char>());
-    inf.close();
-
-    // remove typical comments
-    while(ConfigParser::comment_between(buf, "/*", "*/")) {;}
-    while(ConfigParser::comment_between(buf, "//", "\n")) {;}
-    while(ConfigParser::comment_between(buf, "#", "\n")) {;}
-
-    // find the data set info in brackets { }
-    auto pairs = ConfigParser::find_pairs(buf, "{", "}");
-    int last_end = 0;
-    for(auto &p : pairs)
+    for(auto &config : contents)
     {
-        std::string label = ConfigParser::trim(buf.substr(last_end, p.first - last_end), " \t\n");
-        if(ConfigParser::str_upper(label) == "DATASET") {
-            createDataSet(buf.substr(p.first + 1, p.second - p.first - 1), path);
-            last_end = p.second + 1;
-        }
+        createDataSet(config, path);
     }
 }
 

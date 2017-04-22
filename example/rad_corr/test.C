@@ -209,7 +209,7 @@ void radcor_test()
         cout << "OFF" << endl;
 
     cout << "Peaking Approximation is ";
-    if(rad_cor.GetConfig<bool>("Peaking Approximation"))
+    if(rad_cor.GetConfig<bool>("Energy Peaking Approximation"))
         cout << "ON" << endl;
     else
         cout << "OFF" << endl;
