@@ -697,14 +697,14 @@ inline void CRadCorr::spectrum_init(DataSet &s)
         // LATEST CHANGE: replaced b(z) = 4./3. with Eq. A45 from STEIN
         // originally it was an approximated value regardless of Z dependence,
         // ignoring it introducing an error on a few percent level.
-        BTB = s.radl_before*Bz;
-        BTA = s.radl_after*Bz;
+        BTB = (s.radl_before + __ice_radl(s.ice_before))*Bz;
+        BTA = (s.radl_after + __ice_radl(s.ice_after))*Bz;
         if(user_defined_XI) {
-            XIB = s.coll_before;
-            XIA = s.coll_after;
+            XIB = s.coll_before + __ice_coll(s.ice_before);
+            XIA = s.coll_after + __ice_coll(s.ice_after);
         } else {
-            XIB = __XI_Stein(s.radl_before);
-            XIA = __XI_Stein(s.radl_after);
+            XIB = __XI_Stein(s.radl_before + __ice_radl(s.ice_before));
+            XIA = __XI_Stein(s.radl_after + __ice_radl(s.ice_after));
         }
     } else {
         BTB = 0;
@@ -822,8 +822,8 @@ inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
     return std::pow(_dE/_E0, _bt) / cana::gamma(1. + _bt) * (__phi(_dE/_E0)*_bt + _XI/_dE)/_dE;
 }
 
-// calculate XI based on Stein's formula
-double CRadCorr::__XI_Stein(double radl)
+// calculate XI based on Stein's formula, require radiation length as input
+inline double CRadCorr::__XI_Stein(double radl)
 {
     // formula from Stein, but old and probably wrong estimation
     double xi = (cana::pi*cana::ele_mass/2/cana::alpha);
@@ -831,6 +831,29 @@ double CRadCorr::__XI_Stein(double radl)
     xi /= log(183*std::pow(target_Z, -1./3.));
 
     return xi*radl;
+}
+
+// calculate ice radiation length, input is thickness in mm
+inline double CRadCorr::__ice_radl(double thickness)
+{
+    // hard coded for ice ONLY
+    // http://pdg.lbl.gov/2008/AtomicNuclearProperties/HTML_PAGES/325.html
+    return thickness/393.1;
+}
+
+// calculate ice collisional loss, input is thickness in mm
+// it assumes beta is close to 1, so for electron beam, the beam energy should
+// be far greater than electron's mass
+inline double CRadCorr::__ice_coll(double thickness)
+{
+    // hard coded for ice ONLY
+    // See J. Singh's technical note for details
+    // http://hallaweb.jlab.org/experiment/E97-110/tech/radlength_sagdhv130.pdf
+    // Z/A = 0.55509 mol/g
+    // a = 0.15353747 MeV*(cm^2/mol)
+    // rho = 0.918 g/cm^3
+    return 0.55509*0.15353747*0.918*thickness/10.;
+
 }
 
 void CRadCorr::readDataConf(const std::string &path)
@@ -896,10 +919,7 @@ void CRadCorr::createDataSet(const std::string &config, const std::string &path)
     }
 
     // create a data set with default values
-    DataSet new_set(Econf.Double(),     // energy
-                    0., 0.,             // radiation length before and after
-                    0., 0.,             // collisional loss before and after
-                    0., 1.0);           // RC estimated error and normalization factor
+    DataSet new_set(Econf.Double());
 
     new_set.weight_mott = F_mott/std::pow(new_set.energy, 2);
 
@@ -908,6 +928,8 @@ void CRadCorr::createDataSet(const std::string &config, const std::string &path)
     update_config(conf_obj, "Radiation Length After", new_set.radl_after);
     update_config(conf_obj, "Collisional Loss Before", new_set.coll_before);
     update_config(conf_obj, "Collisional Loss After", new_set.coll_after);
+    update_config(conf_obj, "Ice Before", new_set.ice_before);
+    update_config(conf_obj, "Ice After", new_set.ice_after);
     update_config(conf_obj, "RC Error", new_set.error);
     update_config(conf_obj, "Born Level", new_set.non_rad);
     update_config(conf_obj, "Normalization", new_set.normalization);

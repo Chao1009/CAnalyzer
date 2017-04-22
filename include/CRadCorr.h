@@ -46,6 +46,8 @@ public:
         double radl_after;    // radiation length after target
         double coll_before;   // collision thickness before target
         double coll_after;    // collision thickness after target
+        double ice_before;    // ice on the target cell, before
+        double ice_after;     // ice on the target cell, after
         double error;         // relative error for RC
         double normalization; // normalization factor
         bool non_rad;         // non radiated means born cross section from file
@@ -55,10 +57,9 @@ public:
         double weight_mott;   // mott loss
 
         // constructors
-        DataSet() {};
-        DataSet(double e, double rb, double ra, double cb, double ca, double er, double no, bool m = false)
-        : energy(e), radl_before(rb), radl_after(ra), coll_before(cb), coll_after(ca),
-          error(er), normalization(no), non_rad(m)
+        DataSet(double e)
+        : energy(e), radl_before(0.), radl_after(0.), coll_before(0.), coll_after(0.),
+          ice_before(0.), ice_after(0.), error(0.), normalization(1.), non_rad(false)
         {};
 
         bool operator <(const double &val) const {return energy < val;}
@@ -110,6 +111,8 @@ private:
     double __btr(double E, double Epr);
     double __I(double E0, double E, double xi, double bt);
     double __XI_Stein(double radl);
+    double __ice_radl(double thickness);
+    double __ice_coll(double thickness);
 
 private:
     std::vector<DataSet> data_sets;
