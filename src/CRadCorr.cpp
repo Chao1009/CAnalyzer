@@ -858,12 +858,21 @@ inline double CRadCorr::__ice_coll(double thickness)
 
 void CRadCorr::readDataConf(const std::string &path)
 {
-    ConfigParser c_parser;
-    auto contents = c_parser.ReadFileInBlocks(path, "{", "}", "DATASET", false);
+    // read in file
+    std::string buffer = ConfigParser::file_to_string(path);
 
-    for(auto &config : contents)
+    // remove comments
+    ConfigParser::comment_between(buffer, "/*", "*/");
+    ConfigParser::comment_line(buffer, "//", "\n");
+    ConfigParser::comment_line(buffer, "#", "\n");
+
+    // break into blocks
+    auto blocks = ConfigParser::break_into_blocks(buffer, "{", "}");
+
+    for(auto &block : blocks)
     {
-        createDataSet(config, path);
+        if(ConfigParser::case_ins_equal(block.label, "DATASET"))
+            createDataSet(block.content, path);
     }
 }
 

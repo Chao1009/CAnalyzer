@@ -215,6 +215,6 @@ void radcor_test()
         cout << "OFF" << endl;
 
 //    rad_cor.Radiate();
-    rad_cor.RadiativeCorrection();
+    rad_cor.RadiativeCorrection(1);
     rad_cor.SaveResult("radcor_out.dat");
 }
