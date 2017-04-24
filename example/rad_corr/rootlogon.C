@@ -1,10 +1,12 @@
 // loading the library while using root
 {
+    string cana_dir = "/home/cpeng/saGDH/work/analysis/tools";
+
     // load library
-    gSystem->Load("/home/chao/saGDH/analysis/tools/libCAna.so");
+    gSystem->Load((cana_dir + "/libCAna.so").c_str());
     gSystem->Load("libgfortran.so.3");
     // load include folder
-    gSystem->AddIncludePath("/home/chao/saGDH/analysis/tools/include");
+    gSystem->AddIncludePath((cana_dir + "/include").c_str());
     // add include folder for the interpreter
-    gInterpreter->AddIncludePath("/home/chao/saGDH/analysis/tools/include");
+    gInterpreter->AddIncludePath((cana_dir + "/include").c_str());
 }

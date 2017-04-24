@@ -59,13 +59,13 @@ void CRadCorr::Configure(const std::string &path)
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    angle *= cana::deg2rad;
+    theta = angle*cana::deg2rad;
     target_M = target_A * cana::amu;
-    sin2 = sin(angle/2.)*sin(angle/2.);
-    cos2 = cos(angle/2.)*cos(angle/2.);
+    sin2 = std::pow(sin(theta/2.), 2);
+    cos2 = std::pow(cos(theta/2.), 2);
 
     // mott cross section
-    F_mott = cana::hbarc*cana::alpha*cos(angle/2)/2/sin2;
+    F_mott = cana::hbarc*cana::alpha*cos(theta/2)/2/sin2;
     F_mott = F_mott*F_mott*1e7; // MeV^2*nb/sr
 
     // Schwinger term in internal radiation
@@ -75,33 +75,6 @@ void CRadCorr::Configure(const std::string &path)
     Bz = 1./9.*(target_Z + 1.)/(target_Z + __eta(target_Z));
     Bz /= log(183.*std::pow(target_Z, -1./3.));
     Bz = 4./3.*(1. + Bz);
-
-    // read data files
-    std::string file_str = GetConfig<std::string>("Data Config File");
-    auto files = ConfigParser::split(file_str, ",");
-
-    for(auto &f : files)
-    {
-        readDataConf(f);
-    }
-
-    // sort data sets by energy
-    std::sort(data_sets.begin(), data_sets.end(),
-             [] (const DataSet &set1, const DataSet &set2)
-             {
-                 return set1.energy < set2.energy;
-             });
-
-    // show how many data sets are read-in
-    std::cout << "Read " << data_sets.size() << " data sets."
-              << std::endl;
-
-    for(auto &dset : data_sets)
-    {
-        std::cout << "Energy: " << std::setw(8) << dset.energy
-                  << ",    DataPoints:" << std::setw(8) << dset.data.size()
-                  << std::endl;
-    }
 }
 
 
@@ -114,14 +87,14 @@ bool CRadCorr::SanityCheck()
         return false;
     }
 
-    if(data_sets.empty()) {
+    if(data.Empty()) {
         std::cout << "There are no data."
                   << std::endl;
         return false;
     }
 
     bool radiated_data = false;
-    for(auto &dset : data_sets)
+    for(auto &dset : data.GetSets())
     {
         if(!dset.non_rad) {
             radiated_data = true;
@@ -166,7 +139,7 @@ void CRadCorr::RadiativeCorrection(int iters)
         //init_model();
 
         // do radiative correction for all data sets
-        for(auto &dset : data_sets)
+        for(auto &dset : data.GetSets())
         {
             // skip Born Level data/model
             if(dset.non_rad)
@@ -186,7 +159,7 @@ void CRadCorr::RadiativeCorrection(int iters)
         if(end_by_prec) {
             // get maximum difference between current value and last iteration value
             double max_rel_diff = 0.;
-            for(auto &dset : data_sets)
+            for(auto &dset : data.GetSets())
             {
                 for(auto &point : dset.data)
                 {
@@ -218,7 +191,7 @@ void CRadCorr::Radiate()
     if(!SanityCheck())
         return;
 
-    for(auto &s : data_sets)
+    for(auto &s : data.GetSets())
     {
         if(s.non_rad)
             continue;
@@ -252,7 +225,7 @@ void CRadCorr::SaveResult(const std::string &path)
            << std::setw(15) << "SYST. ERR."
 //           << std::setw(15) << "ITER. CHANGE"
            << std::endl;
-    for(auto &dset : data_sets)
+    for(auto &dset : data.GetSets())
     {
         if(dset.non_rad)
             continue;
@@ -321,7 +294,7 @@ void CRadCorr::SaveResult(const std::string &path)
 //           Phys. Rev. D 5, 528 - 544 (Feb. 1972)                              
 //           http://link.aps.org/abstract/PRD/v5/p528                           
 //==============================================================================
-void CRadCorr::radcor(DataSet &s, bool radiate)
+void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
 {
     spectrum_init(s);
 
@@ -428,7 +401,7 @@ double CRadCorr::fep(const double &Epx)
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
 //==============================================================================
-void CRadCorr::xyrad2d(DataSet &s, bool radiate)
+void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
 {
     spectrum_init(s);
 
@@ -536,89 +509,17 @@ double CRadCorr::int_esdp(const double &Esx)
 }
 
 // interpolates or extrapolates
-double CRadCorr::get_cxsn(const double &E0, const double &Eb)
+inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 {
-    if(Eb >= __Ep_max(E0))
+    // not allowed
+    if(Eb > __Ep_max(E0))
         return 0;
 
-    double weight = (E0 - Eb)/E0;
-
-    // less than the lowest energy we have
-    if(E0 < data_sets.at(0).energy) {
-        // extrapolate
-        return interp(data_sets.at(0), weight)*F_mott/E0/E0;
-        //return from_model(E0, Eb);
-    // within the energy range in spectrum
-    } else if (E0 <= data_sets.back().energy) {
-        size_t i = 0;
-        for(; i < data_sets.size(); ++i)
-        {
-            if(data_sets.at(i).energy >= E0)
-                break;
-        }
-        if(data_sets.at(i).energy == E0)
-            return interp(data_sets.at(i), weight)*F_mott/E0/E0;
-
-        double E1 = data_sets.at(i-1).energy;
-        double E2 = data_sets.at(i).energy;
-        double FTCS = (interp(data_sets.at(i-1), weight)*(E2-E0)
-                       + interp(data_sets.at(i), weight)*(E0-E1))/(E2-E1);
-        return F_mott/E0/E0*FTCS;
-    } else {
-        std::cerr << "Required energy E0 = " << E0
-                  << " exceeds the highest energy in data Emax = "
-                  << data_sets.back().energy
-                  << std::endl;
-        exit(-1);
-    }
-    return 0.;
-}
-
-double CRadCorr::interp(const DataSet &s, const double &w)
-{
-    // exceeds the boundary
-    if(w < s.data.front().v)
-        return 0.;
-    if(w >= s.data.back().v)
-        return s.data.back().born;
-
-    // search the position of w
-    auto it_pair = cana::binary_search_interval(s.data.begin(), s.data.end(), w);
-
-    // not found
-    if(it_pair.second == s.data.end() || it_pair.first == s.data.end())
-        return 0;
-
-    // exact matched
-    if(it_pair.first == it_pair.second)
-        return it_pair.first->born;
-
-    // only have 2 points, do a straight line interpolation
-    if(it_pair.first == s.data.begin()) {
-        const DataPoint &p1 = *it_pair.first;
-        const DataPoint &p2 = *it_pair.second;
-
-        double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
-
-        // LATEST CHANGE: removed unknown constant 0.00001 here, 
-        // probably some protection for two same points
-        // return _interp/(p2.v - p1.v + 0.00001);
-        return _interp/(p2.v - p1.v);
-    }
-
-    // 3 points parabolic fit
-    const DataPoint &p1 = *(it_pair.first - 1);
-    const DataPoint &p2 = *it_pair.first;
-    const DataPoint &p3 = *it_pair.second;
-    double x, xp, xm, a, b, c;
-    x = w - p2.v;
-    xp = p3.v - p2.v;
-    xm = p1.v - p2.v;
-    a = p2.born;
-    c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
-    c /= xp*xm*2;
-    b = (p3.born - p1.born)/(xp - xm) - c*(xp + xm);
-    return a + b*x + c*x*x;
+    // interpolation from data
+    if(data.InRange(E0))
+        return data.GetCrossSection(E0, Eb);
+    else
+        return from_model(E0, Eb);
 }
 
 // initialize the model
@@ -626,10 +527,10 @@ double CRadCorr::interp(const DataSet &s, const double &w)
 void CRadCorr::init_model()
 {
     // data sets should be in a energy transcendent order
-    for(unsigned int i = 0; i < data_sets.size(); ++i)
+    for(unsigned int i = 0; i < data.Size(); ++i)
     {
-        if(!data_sets.at(i).non_rad) {
-            find_model_scale(data_sets.at(i));
+        if(!data.GetSet(i).non_rad) {
+            find_model_scale(data.GetSet(i));
             break;
         }
     }
@@ -637,14 +538,14 @@ void CRadCorr::init_model()
 
 // Determines the scale and shift from the peak value, so the data set should has
 // QE peak or delta resonance peak, otherwise it will be problematic
-void CRadCorr::find_model_scale(const DataSet &mset)
+void CRadCorr::find_model_scale(const CExpData::DataSet &mset)
 {
     // find the peak point
     unsigned int ip = 0;
     double max_xs = 0.;
     for(unsigned int i = 0; i < mset.data.size(); ++i)
     {
-        const DataPoint &p = mset.data.at(i);
+        const CExpData::DataPoint &p = mset.data.at(i);
         if(p.born > max_xs) {
             ip = i;
             max_xs = p.born;
@@ -652,14 +553,14 @@ void CRadCorr::find_model_scale(const DataSet &mset)
     }
 
     // the maximum point
-    const DataPoint &mpoint = mset.data.at(ip);
+    const CExpData::DataPoint &mpoint = mset.data.at(ip);
 
     max_xs = 0.;
     double cxsn = 0; //, max_nu = 0.;
     // we search the QE peak in the model for a +-20 MeV range
     for(double nu = std::max(5., mpoint.nu - 20.); nu < mpoint.nu + 20.; nu += 1.0)
     {
-        QFS_xs(target_Z, target_A, mset.energy, (mset.energy - nu), angle, &cxsn);
+        QFS_xs(target_Z, target_A, mset.energy, (mset.energy - nu), theta, &cxsn);
         if(max_xs < cxsn)
         {
             max_xs = cxsn;
@@ -684,13 +585,13 @@ inline double CRadCorr::from_model(const double &E0, const double &Eb)
 {
     // bosted model
     double cxsn;
-    QFS_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
+    QFS_xs(target_Z, target_A, E0, Eb - model_shift, theta, &cxsn);
     //Bosted_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
     return cxsn*model_scale;
 }
 
 // spectrum based kinematics intialization
-inline void CRadCorr::spectrum_init(DataSet &s)
+inline void CRadCorr::spectrum_init(CExpData::DataSet &s)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
@@ -721,7 +622,7 @@ inline void CRadCorr::spectrum_init(DataSet &s)
 }
 
 // data point based kinematics initialization
-inline void CRadCorr::point_init(DataPoint &point)
+inline void CRadCorr::point_init(CExpData::DataPoint &point)
 {
     // kinematics
     Ep = point.Ep;
@@ -854,129 +755,6 @@ inline double CRadCorr::__ice_coll(double thickness)
     // rho = 0.918 g/cm^3
     return 0.55509*0.15353747*0.918*thickness/10.;
 
-}
-
-void CRadCorr::readDataConf(const std::string &path)
-{
-    // read in file
-    std::string buffer = ConfigParser::file_to_string(path);
-
-    // remove comments
-    ConfigParser::comment_between(buffer, "/*", "*/");
-    ConfigParser::comment_line(buffer, "//", "\n");
-    ConfigParser::comment_line(buffer, "#", "\n");
-
-    // break into blocks
-    auto blocks = ConfigParser::break_into_blocks(buffer, "{", "}");
-
-    for(auto &block : blocks)
-    {
-        if(ConfigParser::case_ins_equal(block.label, "DATASET"))
-            createDataSet(block.content, path);
-    }
-}
-
-template<typename T>
-inline void update_config(const ConfigObject &conf, const std::string &var, T &val)
-{
-    ConfigValue term = conf.GetConfigValue(var);
-    if(!term.IsEmpty())
-        val = term.Convert<T>();
-}
-
-// create a new data set based on configuration text
-void CRadCorr::createDataSet(const std::string &config, const std::string &path)
-{
-    ConfigObject conf_obj;
-
-    conf_obj.ReadConfigString(config);
-
-    ConfigValue Econf = conf_obj.GetConfigValue("Energy");
-    if(Econf.IsEmpty() || cana::is_in(Econf.Double(), data_sets.begin(), data_sets.end())) {
-        std::cerr << "Error: Missing energy information or there exists a data"
-                  << "set with the same energy in configuration: " << config
-                  << std::endl;
-        return;
-    }
-
-    // create a data set with default values
-    DataSet new_set(Econf.Double());
-
-    new_set.weight_mott = F_mott/std::pow(new_set.energy, 2);
-
-    // connect data set variables to configurations
-    update_config(conf_obj, "Radiation Length Before", new_set.radl_before);
-    update_config(conf_obj, "Radiation Length After", new_set.radl_after);
-    update_config(conf_obj, "Collisional Loss Before", new_set.coll_before);
-    update_config(conf_obj, "Collisional Loss After", new_set.coll_after);
-    update_config(conf_obj, "Ice Before", new_set.ice_before);
-    update_config(conf_obj, "Ice After", new_set.ice_after);
-    update_config(conf_obj, "RC Error", new_set.error);
-    update_config(conf_obj, "Born Level", new_set.non_rad);
-    update_config(conf_obj, "Normalization", new_set.normalization);
-
-    // read-in the data points in this set
-    std::string data_file, data_label;
-    update_config(conf_obj, "Data File", data_file);
-    update_config(conf_obj, "Data Label", data_label);
-
-    std::string dir = ConfigParser::decompose_path(path).dir;
-    readData(new_set, ConfigParser::form_path(dir, data_file), data_label);
-
-    // sort data points by nu
-    std::sort(new_set.data.begin(), new_set.data.end(),
-              [] (const DataPoint &p1, const DataPoint &p2)
-              {
-                  return p1.nu < p2.nu;
-              });
-
-    data_sets.emplace_back(std::move(new_set));
-}
-
-// read experimental data in the format line by line
-// comment marks are # and //
-// splitter can be tab, space and comma
-// additional white spaces (space and tab) will be trimmed
-// expected 4 ~ 5 columns (label can be neglected if input data_label is empty)
-// *label*, nu, cxsn, stat. error, syst. error
-void CRadCorr::readData(DataSet &dset, const std::string &path, const std::string &label)
-{
-    ConfigParser c_parser;
-
-    if(!c_parser.ReadFile(path)) {
-        std::cerr << "Cannot open file \"" << path << "\", no data points read "
-                  << "for data set at energy = " << dset.energy
-                  << std::endl;
-        return;
-    }
-
-    while(c_parser.ParseLine())
-    {
-        // check if label agrees
-        if(c_parser.NbofElements() == 5) {
-            std::string plabel = c_parser.TakeFirst().String();
-            if(plabel != label)
-                continue;
-        }
-
-        // check format
-        if(!c_parser.CheckElements(4))
-            continue;
-
-        // new data points
-        double nu, cxsn, stat, syst;
-        c_parser >> nu >> cxsn >> stat >> syst;
-        // apply normalization
-        cxsn *= dset.normalization/dset.weight_mott;
-        stat *= dset.normalization;
-
-        DataPoint new_point(nu, cxsn, stat, syst);
-        // calculate ep
-        new_point.Ep = dset.energy - nu;
-        new_point.v = nu/dset.energy;
-
-        dset.data.push_back(std::move(new_point));
-    }
 }
 
 template<typename T>

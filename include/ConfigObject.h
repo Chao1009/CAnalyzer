@@ -80,4 +80,18 @@ protected:
     ConfigValue __empty_value;
 };
 
+namespace conf
+{
+    template<typename T>
+    inline bool update_config(const ConfigObject &conf, const std::string &var, T &val)
+    {
+        ConfigValue term = conf.GetConfigValue(var);
+        if(!term.IsEmpty()) {
+            val = term.Convert<T>();
+            return true;
+        }
+        return false;
+    }
+}
+
 #endif

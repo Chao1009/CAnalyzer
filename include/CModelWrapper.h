@@ -1,3 +1,6 @@
+#ifndef C_MODEL_WRAPPER_H
+#define C_MODEL_WRAPPER_H
+
 // model wrapper in C format
 extern "C"
 {
@@ -16,4 +19,4 @@ extern "C"
                 double *xs);
 }
 
-
+#endif

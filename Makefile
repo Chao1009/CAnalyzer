@@ -50,12 +50,13 @@ CXX_SOURCES   = canalib \
                 ConfigParser \
 				ConfigValue \
 				ConfigObject \
-                CRadCorr \
+				CExpData \
+				CRadCorr \
                 CAnalyzer \
                 CMatrix \
                 CEstimator \
 				CElasTails \
-				CHe3Elas
+				CHe3Elas \
 
 F_SUFFIX      = f
 F_SOURCES     = BostedFit \

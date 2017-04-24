@@ -5,69 +5,12 @@
 #include <vector>
 #include <string>
 #include "ConfigObject.h"
-#include "ModelWrapper.h"
+#include "CExpData.h"
+#include "CModelWrapper.h"
 
 
 class CRadCorr : public ConfigObject
 {
-public:
-    struct DataPoint
-    {
-        // read from data file
-        double nu;       // nu (MeV)
-        double stat;     // statistical error
-        double syst;     // systematic error
-
-        // calculated
-        double Ep;       // final energy before coll. loss
-        double v;        // nu/E0
-        double rad;      // Radiated cross section
-        double born;     // Born cross section
-        double last;     // Save info from last iteration
-
-        // constructors
-        DataPoint() {};
-        DataPoint(double n, double c, double st, double sy)
-        : nu(n), stat(st), syst(sy), rad(c), born(c), last(c)
-        {};
-
-        // for binary search
-        bool operator <(const double &val) const {return v < val;}
-        bool operator >(const double &val) const {return v > val;}
-        bool operator ==(const double &val) const {return v == val;}
-        bool operator !=(const double &val) const {return v != val;}
-    };
-
-    struct DataSet
-    {
-        // read from data file
-        double energy;        // incident electron energy
-        double radl_before;   // radiation length before target
-        double radl_after;    // radiation length after target
-        double coll_before;   // collision thickness before target
-        double coll_after;    // collision thickness after target
-        double ice_before;    // ice on the target cell, before
-        double ice_after;     // ice on the target cell, after
-        double error;         // relative error for RC
-        double normalization; // normalization factor
-        bool non_rad;         // non radiated means born cross section from file
-        std::vector<DataPoint> data;
-
-        // calculated
-        double weight_mott;   // mott loss
-
-        // constructors
-        DataSet(double e)
-        : energy(e), radl_before(0.), radl_after(0.), coll_before(0.), coll_after(0.),
-          ice_before(0.), ice_after(0.), error(0.), normalization(1.), non_rad(false)
-        {};
-
-        bool operator <(const double &val) const {return energy < val;}
-        bool operator >(const double &val) const {return energy > val;}
-        bool operator ==(const double &val) const {return energy == val;}
-        bool operator !=(const double &val) const {return energy != val;}
-    };
-
 public:
     CRadCorr();
     virtual ~CRadCorr();
@@ -79,8 +22,8 @@ public:
     void SaveResult(const std::string &path);
 
 private:
-    void radcor(DataSet &set, bool radiate = false);
-    void xyrad2d(DataSet &set, bool radiate = false);
+    void radcor(CExpData::DataSet &dset, bool radiate = false);
+    void xyrad2d(CExpData::DataSet &dset, bool radiate = false);
     double fes(const double &Es);
     double fep(const double &Ep);
     double int_es(const double &Es);
@@ -88,19 +31,15 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    double interp(const DataSet &s, const double &w);
     void init_model();
-    void find_model_scale(const DataSet &mset);
+    void find_model_scale(const CExpData::DataSet &mset);
     double from_model(const double &E0, const double &Eb);
-    void readDataConf(const std::string &path);
-    void createDataSet(const std::string &config, const std::string &path = "");
-    void readData(DataSet &dset, const std::string &path, const std::string &label);
     template<typename T>
     void number_operation(const std::string &key, T &val);
 
     // some lines
-    void spectrum_init(DataSet &dset);
-    void point_init(DataPoint &point);
+    void spectrum_init(CExpData::DataSet &dset);
+    void point_init(CExpData::DataPoint &point);
     double __Ep_max(double Es);
     double __Es_min(double Ep);
     double __phi(double x);
@@ -115,12 +54,12 @@ private:
     double __ice_coll(double thickness);
 
 private:
-    std::vector<DataSet> data_sets;
+    CExpData data;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
     int n_sim, n_sim_2d;
     double iter_prec, sim_step, sim_step_2d;
     double target_Z, target_A, target_M;
-    double angle, sin2, cos2;
+    double angle, theta, sin2, cos2;
 
     // parameters that will be shared between different functions
     double F_mott, Schwinger, delta, delta1, delta2, Bz; // for whole data sets

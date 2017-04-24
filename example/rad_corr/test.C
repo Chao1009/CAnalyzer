@@ -1,4 +1,8 @@
 #include "CAnalyzer.h"
+#include "CMatrix.h"
+#include "CEstimator.h"
+#include "CExpData.h"
+#include "CRadCorr.h"
 
 using namespace cana;
 
@@ -185,6 +189,12 @@ void model_wrapper_test(double energy, double angle, double nu_min, double nu_ma
     }
 }
 
+void data_test()
+{
+    CExpData data;
+    data.ReadConfigFile("data_sets_9deg.conf");
+}
+
 void radcor_test()
 {
     CRadCorr rad_cor;
@@ -218,3 +228,4 @@ void radcor_test()
     rad_cor.RadiativeCorrection(1);
     rad_cor.SaveResult("radcor_out.dat");
 }
+

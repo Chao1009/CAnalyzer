@@ -2,9 +2,6 @@
 #define C_ANALYZER_H
 
 #include "ConfigParser.h"
-#include "CMatrix.h"
-#include "CEstimator.h"
-#include "CRadCorr.h"
 #include "canalib.h"
 #include <vector>
 #include <string>
