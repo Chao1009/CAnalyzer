@@ -72,7 +72,10 @@ public:
 
     void ReadConfigFile(const std::string &path, bool verbose = true);
     double GetCrossSection(const double &E0, const double &Eb) const;
-    inline double GetAngle() const {return angle;}
+
+    inline double Angle() const {return angle;}
+    inline double TargetZ() const {return targetZ;}
+    inline double TargetA() const {return targetA;}
     inline size_t Size() const {return data_sets.size();}
     inline bool Empty() const {return data_sets.empty();}
     inline std::vector<DataSet> &GetSets() {return data_sets;}
@@ -95,7 +98,7 @@ private:
     void dataInit();
 
 private:
-    double angle;
+    double angle, targetZ, targetA;
     double mott_factor;
     std::vector<DataSet> data_sets;
 };

@@ -48,15 +48,15 @@ SOURCES_DIR   = src
 CXX_SUFFIX    = cpp
 CXX_SOURCES   = canalib \
                 ConfigParser \
-				ConfigValue \
-				ConfigObject \
-				CExpData \
-				CRadCorr \
+                ConfigValue \
+                ConfigObject \
+                CExpData \
+                CRadCorr \
                 CAnalyzer \
                 CMatrix \
                 CEstimator \
-				CElasTails \
-				CHe3Elas \
+                CElasTails \
+                CHe3Elas \
 
 F_SUFFIX      = f
 F_SOURCES     = BostedFit \

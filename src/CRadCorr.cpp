@@ -6,6 +6,9 @@
 #include <iterator>
 #include <algorithm>
 
+// a hack pointer to make passing parameters for simpson integration easier
+const CExpData *interp_source;
+
 
 
 // constructor
@@ -51,22 +54,25 @@ void CRadCorr::Configure(const std::string &path)
     // for non-peaking-approximation only
     delta1 = getDefConfig<double>("Delta1", 5);
     delta2 = getDefConfig<double>("Delta2", 5);
+}
+
+
+// pre-calculate some terms that won't change during radiation calculation
+void CRadCorr::Initialize(const CExpData &exp_data)
+{
+    interp_source = &exp_data;
+
     // target
-    target_Z = getDefConfig<double>("Target Z", 2);
-    target_A = getDefConfig<double>("Target A", 3.0149322473);
+    target_Z = exp_data.TargetZ();
+    target_A = exp_data.TargetA();
     // scattering angle
-    angle = getDefConfig<double>("Scattering Angle", 6.1);
+    theta = exp_data.Angle()*cana::deg2rad;
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    theta = angle*cana::deg2rad;
     target_M = target_A * cana::amu;
     sin2 = std::pow(sin(theta/2.), 2);
     cos2 = std::pow(cos(theta/2.), 2);
-
-    // mott cross section
-    F_mott = cana::hbarc*cana::alpha*cos(theta/2)/2/sin2;
-    F_mott = F_mott*F_mott*1e7; // MeV^2*nb/sr
 
     // Schwinger term in internal radiation
     Schwinger = cana::pi*cana::pi/6 - cana::spence(cos2);
@@ -77,9 +83,8 @@ void CRadCorr::Configure(const std::string &path)
     Bz = 4./3.*(1. + Bz);
 }
 
-
 // test some configuration values, warn some simple mistake
-bool CRadCorr::SanityCheck()
+bool CRadCorr::SanityCheck(const CExpData &exp_data)
 {
     if(!internal_RC && !external_RC) {
         std::cout << "Both internal and external RC are OFF, no need to run."
@@ -87,14 +92,14 @@ bool CRadCorr::SanityCheck()
         return false;
     }
 
-    if(data.Empty()) {
+    if(exp_data.Empty()) {
         std::cout << "There are no data."
                   << std::endl;
         return false;
     }
 
     bool radiated_data = false;
-    for(auto &dset : data.GetSets())
+    for(auto &dset : exp_data.GetSets())
     {
         if(!dset.non_rad) {
             radiated_data = true;
@@ -127,9 +132,11 @@ bool CRadCorr::SanityCheck()
 // if iteration number is provided and > 0, it will do iterations by the input
 // number
 // if else, it will do iterations until the result diff. reached the iter_prec
-void CRadCorr::RadiativeCorrection(int iters)
+void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 {
-    if(!SanityCheck())
+    Initialize(exp_data);
+
+    if(!SanityCheck(exp_data))
         return;
 
     bool end_by_prec = (iters <= 0)? true : false;
@@ -139,7 +146,7 @@ void CRadCorr::RadiativeCorrection(int iters)
         //init_model();
 
         // do radiative correction for all data sets
-        for(auto &dset : data.GetSets())
+        for(auto &dset : exp_data.GetSets())
         {
             // skip Born Level data/model
             if(dset.non_rad)
@@ -159,7 +166,7 @@ void CRadCorr::RadiativeCorrection(int iters)
         if(end_by_prec) {
             // get maximum difference between current value and last iteration value
             double max_rel_diff = 0.;
-            for(auto &dset : data.GetSets())
+            for(auto &dset : exp_data.GetSets())
             {
                 for(auto &point : dset.data)
                 {
@@ -186,12 +193,14 @@ void CRadCorr::RadiativeCorrection(int iters)
 }
 
 // radiate data sets
-void CRadCorr::Radiate()
+void CRadCorr::Radiate(CExpData &exp_data)
 {
-    if(!SanityCheck())
+    Initialize(exp_data);
+
+    if(!SanityCheck(exp_data))
         return;
 
-    for(auto &s : data.GetSets())
+    for(auto &s : exp_data.GetSets())
     {
         if(s.non_rad)
             continue;
@@ -205,6 +214,7 @@ void CRadCorr::Radiate()
     }
 }
 
+/*
 // save result to the path
 void CRadCorr::SaveResult(const std::string &path)
 {
@@ -232,9 +242,9 @@ void CRadCorr::SaveResult(const std::string &path)
 
         for(auto &point : dset.data)
         {
-            double xsr = point.rad*dset.weight_mott;
-            double xsb = point.born*dset.weight_mott;
-//            double xsl = point.last*set.weight_mott;
+            double xsr = point.rad;
+            double xsb = point.born;
+//            double xsl = point.last;
             double scale = xsb/xsr;
             double stat_err = point.stat*scale;
             double syst_err = point.syst*scale;
@@ -251,6 +261,7 @@ void CRadCorr::SaveResult(const std::string &path)
         }
     }
 }
+*/
 
 //==============================================================================
 // radiative correction for one spectrum                                        
@@ -338,12 +349,12 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = SIGLOW*point.born + (SIGBEF + SIGAFT)/s.weight_mott;
+            point.rad = SIGLOW*point.born + (SIGBEF + SIGAFT);
         } else {
             // save last iteration
             point.last = point.born;
             // radiative correction, update the born cross section
-            point.born = (point.rad - (SIGBEF+SIGAFT)/s.weight_mott)/SIGLOW;
+            point.born = (point.rad - (SIGBEF+SIGAFT))/SIGLOW;
         }
     }
     std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
@@ -453,12 +464,12 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
 
         if(radiate) {
             // radiate, update radiated cross section
-            point.rad = sgl_both*point.born + (sgl_Es + sgl_Ep + int_2d)/s.weight_mott;
+            point.rad = sgl_both*point.born + (sgl_Es + sgl_Ep + int_2d);
         } else {
             // save last iteration
             point.last = point.born;
             // radiative correction, update the born cross section
-            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d)/s.weight_mott)/sgl_both;
+            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d))/sgl_both;
         }
     }
     std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
@@ -516,21 +527,21 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
         return 0;
 
     // interpolation from data
-    if(data.InRange(E0))
-        return data.GetCrossSection(E0, Eb);
+    if(interp_source->InRange(E0))
+        return interp_source->GetCrossSection(E0, Eb);
     else
         return from_model(E0, Eb);
 }
 
 // initialize the model
 // determine the scale and shift from the data at lowest energy
-void CRadCorr::init_model()
+void CRadCorr::init_model(const CExpData &exp_data)
 {
     // data sets should be in a energy transcendent order
-    for(unsigned int i = 0; i < data.Size(); ++i)
+    for(unsigned int i = 0; i < exp_data.Size(); ++i)
     {
-        if(!data.GetSet(i).non_rad) {
-            find_model_scale(data.GetSet(i));
+        if(!exp_data.GetSet(i).non_rad) {
+            find_model_scale(exp_data.GetSet(i));
             break;
         }
     }
@@ -568,7 +579,7 @@ void CRadCorr::find_model_scale(const CExpData::DataSet &mset)
         }
     }
 
-    model_scale = mpoint.born*mset.weight_mott/max_xs;
+    model_scale = mpoint.born/max_xs;
     // do not apply shift now, need more study
 //    model_shift = mpoint.nu - max_nu;
 

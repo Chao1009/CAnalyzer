@@ -16,10 +16,10 @@ public:
     virtual ~CRadCorr();
 
     void Configure(const std::string &path);
-    bool SanityCheck();
-    void RadiativeCorrection(int iters = 0);
-    void Radiate();
-    void SaveResult(const std::string &path);
+    void RadiativeCorrection(CExpData &exp_data, int iters = 0);
+    void Radiate(CExpData &exp_data);
+    void Initialize(const CExpData &exp_data);
+    bool SanityCheck(const CExpData &exp_data);
 
 private:
     void radcor(CExpData::DataSet &dset, bool radiate = false);
@@ -31,7 +31,7 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    void init_model();
+    void init_model(const CExpData &exp_data);
     void find_model_scale(const CExpData::DataSet &mset);
     double from_model(const double &E0, const double &Eb);
     template<typename T>
@@ -54,12 +54,11 @@ private:
     double __ice_coll(double thickness);
 
 private:
-    CExpData data;
     bool internal_RC, external_RC, user_defined_XI, peak_approx;
     int n_sim, n_sim_2d;
     double iter_prec, sim_step, sim_step_2d;
     double target_Z, target_A, target_M;
-    double angle, theta, sin2, cos2;
+    double theta, sin2, cos2;
 
     // parameters that will be shared between different functions
     double F_mott, Schwinger, delta, delta1, delta2, Bz; // for whole data sets

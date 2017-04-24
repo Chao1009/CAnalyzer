@@ -59,15 +59,22 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
     }
 }
 
+// helper function
+inline void warn_setting_miss(bool warn, std::string term)
+{
+    if(warn)
+        std::cerr << "Error: Missing (" << term << ") in global settings." << std::endl;
+}
+
+// read settings
 void CExpData::globalSetting(const std::string &config)
 {
     ConfigObject conf_obj;
     conf_obj.ReadConfigString(config);
 
-    if(!conf::update_config(conf_obj, "Angle", angle)) {
-        std::cerr << "Error: Missing angle in global settings." << std::endl;
-    }
-
+    warn_setting_miss(!conf::update_config(conf_obj, "Angle", angle), "Angle");
+    warn_setting_miss(!conf::update_config(conf_obj, "Target Z", targetZ), "Target Z");
+    warn_setting_miss(!conf::update_config(conf_obj, "Target A", targetA), "Target A");
 }
 
 // create a new data set based on configuration text
