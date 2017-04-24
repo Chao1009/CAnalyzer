@@ -2,6 +2,7 @@
 #include "ConfigParser.h"
 #include "ConfigObject.h"
 #include "canalib.h"
+#include <fstream>
 #include <iostream>
 #include <iomanip>
 
@@ -55,6 +56,54 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
                       << ", DataPoints:" << std::setw(8) << dset.data.size()
                       << ", Type: " << ((dset.non_rad) ? "Born" : "Rad")
                       << std::endl;
+        }
+    }
+}
+
+// save result to the path
+void CExpData::SaveResult(const std::string &path)
+const
+{
+    std::ofstream output(path);
+    if(!output.is_open()) {
+        std::cerr << "Cannot open output file "
+                  << "\"" << path << "\""
+                  << std::endl;
+        return;
+    }
+
+    output << "#"
+           << std::setw(7) << "ENERGY"
+           << std::setw(8) << "NU"
+           << std::setw(15) << "SIGRAD"
+           << std::setw(15) << "SIGBORN"
+           << std::setw(15) << "STAT. ERR."
+           << std::setw(15) << "SYST. ERR."
+//           << std::setw(15) << "ITER. CHANGE"
+           << std::endl;
+    for(auto &dset : data_sets)
+    {
+        if(dset.non_rad)
+            continue;
+
+        for(auto &point : dset.data)
+        {
+            double xsr = point.rad;
+            double xsb = point.born;
+//            double xsl = point.last;
+            double scale = xsb/xsr;
+            double stat_err = point.stat*scale;
+            double syst_err = point.syst*scale;
+            double rc_err = dset.error*std::abs(xsb - xsr);
+            syst_err = sqrt(syst_err*syst_err + rc_err*rc_err);
+            output << std::setw(8) << dset.energy
+                   << std::setw(8) << point.nu
+                   << std::setw(15) << xsr
+                   << std::setw(15) << xsb
+                   << std::setw(15) << stat_err
+                   << std::setw(15) << syst_err
+//                   << std::setw(15) << xsb - xsl
+                   << std::endl;
         }
     }
 }

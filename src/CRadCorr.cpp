@@ -98,21 +98,6 @@ bool CRadCorr::SanityCheck(const CExpData &exp_data)
         return false;
     }
 
-    bool radiated_data = false;
-    for(auto &dset : exp_data.GetSets())
-    {
-        if(!dset.non_rad) {
-            radiated_data = true;
-            break;
-        }
-    }
-
-    if(!radiated_data) {
-        std::cout << "There are no radiated data."
-                  << std::endl;
-        return false;
-    }
-
     if(sim_step <= 0 || sim_step_2d <= 0) {
         std::cout << "Simpson integration step size must be > 0"
                   << std::endl;
@@ -202,7 +187,8 @@ void CRadCorr::Radiate(CExpData &exp_data)
 
     for(auto &s : exp_data.GetSets())
     {
-        if(s.non_rad)
+        // only radiate for Born Level
+        if(!s.non_rad)
             continue;
 
         std::cout << "Radiate, spectrum energy: " << s.energy << std::endl;
@@ -213,55 +199,6 @@ void CRadCorr::Radiate(CExpData &exp_data)
             xyrad2d(s, true);
     }
 }
-
-/*
-// save result to the path
-void CRadCorr::SaveResult(const std::string &path)
-{
-    std::ofstream output(path);
-    if(!output.is_open()) {
-        std::cerr << "Cannot open output file "
-                  << "\"" << path << "\""
-                  << std::endl;
-        return;
-    }
-
-    output << "#"
-           << std::setw(7) << "ENERGY"
-           << std::setw(8) << "NU"
-           << std::setw(15) << "SIGRAD"
-           << std::setw(15) << "SIGBORN"
-           << std::setw(15) << "STAT. ERR."
-           << std::setw(15) << "SYST. ERR."
-//           << std::setw(15) << "ITER. CHANGE"
-           << std::endl;
-    for(auto &dset : data.GetSets())
-    {
-        if(dset.non_rad)
-            continue;
-
-        for(auto &point : dset.data)
-        {
-            double xsr = point.rad;
-            double xsb = point.born;
-//            double xsl = point.last;
-            double scale = xsb/xsr;
-            double stat_err = point.stat*scale;
-            double syst_err = point.syst*scale;
-            double rc_err = dset.error*std::abs(xsb - xsr);
-            syst_err = sqrt(syst_err*syst_err + rc_err*rc_err);
-            output << std::setw(8) << dset.energy
-                   << std::setw(8) << point.nu
-                   << std::setw(15) << xsr
-                   << std::setw(15) << xsb
-                   << std::setw(15) << stat_err
-                   << std::setw(15) << syst_err
-//                   << std::setw(15) << xsb - xsl
-                   << std::endl;
-        }
-    }
-}
-*/
 
 //==============================================================================
 // radiative correction for one spectrum                                        
