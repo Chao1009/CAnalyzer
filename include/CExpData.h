@@ -7,6 +7,12 @@
 class CExpData
 {
 public:
+    struct Settings
+    {
+        double angle, targetZ, targetA;
+        std::string data_dir, accpt_dir, coll_dir;
+    };
+
     struct DataPoint
     {
         // read from data file
@@ -49,8 +55,8 @@ public:
         bool non_rad;         // non radiated means born cross section from file
         std::vector<DataPoint> data;
 
-        // calculated
-        double weight_mott;   // mott loss
+        // information related
+        std::string data_file, data_label, accpt_file, coll_file;
 
         // constructors
         DataSet()
@@ -58,6 +64,8 @@ public:
           ice_before(0.), ice_after(0.), error(0.), normalization(1.), non_rad(false)
         {};
 
+        void ReadConfig(const std::string &conf_str);
+        void ReadData(const std::string &path, const std::string &label);
         double Interp(const double &v) const;
 
         bool operator <(const double &val) const {return energy < val;}
@@ -71,12 +79,17 @@ public:
     virtual ~CExpData();
 
     void ReadConfigFile(const std::string &path, bool verbose = true);
+    void ReadSettings(const std::string &conf_str, const std::string &path);
+    void ReadDataPoints(DataSet &dset, const std::string &path, const std::string &label);
+
     double GetCrossSection(const double &E0, const double &Eb) const;
+    void DataUpdate();
     void SaveResult(const std::string &path) const;
 
-    inline double Angle() const {return angle;}
-    inline double TargetZ() const {return targetZ;}
-    inline double TargetA() const {return targetA;}
+    inline const Settings &GetSettings() const {return settings;}
+    inline double Angle() const {return settings.angle;}
+    inline double TargetZ() const {return settings.targetZ;}
+    inline double TargetA() const {return settings.targetA;}
     inline size_t Size() const {return data_sets.size();}
     inline bool Empty() const {return data_sets.empty();}
     inline std::vector<DataSet> &GetSets() {return data_sets;}
@@ -93,14 +106,7 @@ public:
 
 
 private:
-    void globalSetting(const std::string &config);
-    void createDataSet(const std::string &config, const std::string &path = "");
-    void readData(DataSet &dset, const std::string &path, const std::string &label);
-    void dataInit();
-
-private:
-    double angle, targetZ, targetA;
-    double mott_factor;
+    Settings settings;
     std::vector<DataSet> data_sets;
 };
 

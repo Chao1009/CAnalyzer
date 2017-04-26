@@ -298,5 +298,3 @@ inline double CHe3Elas::__I(double _E0, double _E, double _XI, double _bt)
     double _dE = _E0 - _E;
     return std::pow(_dE/_E0, _bt) / cana::gamma(1. + _bt) * (__phi(_dE/_E0)*_bt + _XI/_dE)/_dE;
 }
-
-

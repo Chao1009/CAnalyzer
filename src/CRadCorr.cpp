@@ -128,7 +128,7 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 
     for(int iter = 1; (iter <= iters) || end_by_prec; ++iter)
     {
-        //init_model();
+        init_model(exp_data);
 
         // do radiative correction for all data sets
         for(auto &dset : exp_data.GetSets())
@@ -161,15 +161,21 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
                 }
             }
 
-            // check if it should continue or not
+            // end iteration message
+            std::cout << "Iteration " << iter << " done."
+                      << "Maximum change = " << max_rel_diff*100. << "%, "
+                      << "required precision = " << iter_prec*100. << "%. "
+                      << std::endl;
+
+            // need continue
             if(max_rel_diff > iter_prec) {
-                std::cout << "Iteration " << iter << " is not converging within "
-                          << "the required precision = " << iter_prec*100. <<"%, "
-                          << "the maximum difference = " << max_rel_diff*100. << "%, "
+                std::cout << "Not converging within the required precision, "
                           << "continue iterations..."
                           << std::endl;
+            // Done the radiative correction
             } else {
-                // Done the radiative correction
+                std::cout << "Converged within the required precision, done!"
+                          << std::endl;
                 return;
             }
         }
@@ -187,6 +193,8 @@ void CRadCorr::Radiate(CExpData &exp_data)
 
     for(auto &s : exp_data.GetSets())
     {
+        init_model(exp_data, true);
+
         // only radiate for Born Level
         if(!s.non_rad)
             continue;
@@ -463,23 +471,45 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb > __Ep_max(E0))
         return 0;
 
+    return interp_source->GetCrossSection(E0, Eb);
+
+    /*
     // interpolation from data
-    if(interp_source->InRange(E0))
+    if(interp_source->InRange(E0)) {
         return interp_source->GetCrossSection(E0, Eb);
-    else
+    // extrapolation from model
+    } else {
         return from_model(E0, Eb);
+    }
+    */
 }
 
 // initialize the model
 // determine the scale and shift from the data at lowest energy
-void CRadCorr::init_model(const CExpData &exp_data)
+void CRadCorr::init_model(const CExpData &exp_data, bool radiate)
 {
-    // data sets should be in a energy transcendent order
-    for(unsigned int i = 0; i < exp_data.Size(); ++i)
-    {
-        if(!exp_data.GetSet(i).non_rad) {
+    if(exp_data.Empty())
+        return;
+
+    // for radiate, just match the built-in model with input data set
+    if(radiate) {
+        find_model_scale(exp_data.GetSet(0));
+    } else {
+        // for radiative correction, find the lowest energy set for real data sets
+        // and match it with the built-in model
+        size_t i = 0;
+        for(; i < exp_data.Size(); ++i)
+        {
+            if(!exp_data.GetSet(i).non_rad) {
+                break;
+            }
+        }
+
+        if(i < exp_data.Size()) {
             find_model_scale(exp_data.GetSet(i));
-            break;
+        } else {
+            std::cerr << "Cannot find experimental data set to scale model."
+                      << std::endl;
         }
     }
 }

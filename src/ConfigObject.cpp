@@ -77,13 +77,13 @@ bool ConfigObject::ReadConfigFile(const std::string &path)
 }
 
 // read the configuration string directly
-void ConfigObject::ReadConfigString(const std::string &content)
+void ConfigObject::ReadConfigString(const std::string &content, const std::string &source)
 {
     ConfigParser c_parser(split_chars);
 
     c_parser.ReadBuffer(content.c_str());
 
-    parserProcess(c_parser, "buffer_string");
+    parserProcess(c_parser, source);
 }
 
 // continue parse the terms

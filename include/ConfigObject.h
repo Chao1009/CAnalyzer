@@ -23,7 +23,7 @@ public:
     bool HasKey(const std::string &name) const;
 
     bool ReadConfigFile(const std::string &path);
-    void ReadConfigString(const std::string &content);
+    void ReadConfigString(const std::string &content, const std::string &source = "buffer_string");
     void SetConfigValue(const std::string &var_name, const ConfigValue &c_value);
     void SetIgnoreChars(const std::string &ignore) {ignore_chars = ignore;}
     void SetSplitChars(const std::string &splitter) {split_chars = splitter;}

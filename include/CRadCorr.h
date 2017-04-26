@@ -31,7 +31,7 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    void init_model(const CExpData &exp_data);
+    void init_model(const CExpData &exp_data, bool radiate = false);
     void find_model_scale(const CExpData::DataSet &mset);
     double from_model(const double &E0, const double &Eb);
     template<typename T>

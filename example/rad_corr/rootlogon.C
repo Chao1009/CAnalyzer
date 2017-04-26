@@ -1,6 +1,6 @@
 // loading the library while using root
 {
-    string cana_dir = "/home/cpeng/saGDH/work/analysis/tools";
+    string cana_dir = "/home/chao/saGDH/analysis/tools";
 
     // load library
     gSystem->Load((cana_dir + "/libCAna.so").c_str());
