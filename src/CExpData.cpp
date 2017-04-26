@@ -7,6 +7,18 @@
 #include <iomanip>
 
 
+// some inlines
+inline double __Q2(double E0, double nu, double sinsq)
+{
+    return 4.*E0*(E0 - nu)*sinsq;
+}
+
+
+inline double __W(double Mt, double nu, double Qsq)
+{
+    return sqrt(Mt*(Mt + 2*nu) - Qsq);
+}
+
 
 // constructor
 CExpData::CExpData()
@@ -170,6 +182,10 @@ void CExpData::ReadSettings(const std::string &config, const std::string &path)
 // update data, sorting data points and sets
 void CExpData::DataUpdate()
 {
+    // pre-calculate variable to save time
+    sin2 = std::pow(sin(settings.angle*cana::deg2rad/2.), 2);
+    targetM = cana::neutron_mass;
+
     for(auto &dset : data_sets)
     {
         // sort data points by nu
@@ -178,6 +194,13 @@ void CExpData::DataUpdate()
                   {
                       return p1.nu < p2.nu;
                   });
+
+        // calculate the invariant mass for each point
+        for(auto &p : dset.data)
+        {
+            p.Q2 = __Q2(dset.energy, p.nu, sin2);
+            p.W = __W(targetM, p.nu, p.Q2);
+        }
     }
 
     // sort data sets by energy
@@ -194,31 +217,31 @@ double CExpData::GetCrossSection(const double &E0, const double &Eb)
 const
 {
     double res;
-    double w = (E0 - Eb)/E0;
+    double Qsq = __Q2(E0, E0 - Eb, sin2);
+    double w = __W(targetM, E0 - Eb, Qsq);
 
     auto inter = cana::binary_search_interval(data_sets.begin(), data_sets.end(), E0);
 
     // extrapolation, may result in a huge error
     if(inter.first == data_sets.end() || inter.second == data_sets.end()) {
         if(E0 < data_sets.front().energy) {
-            res = data_sets.front().Interp(w)*std::pow(data_sets.front().energy/E0, 2);
+            res = data_sets.front().Interp(w);
         } else {
-            res = data_sets.back().Interp(w)*std::pow(data_sets.back().energy/E0, 2);
+            res = data_sets.back().Interp(w);
         }
     // exact match
     } else if(inter.first == inter.second) {
-        res = inter.first->Interp(w)*std::pow(inter.first->energy/E0, 2);
+        res = inter.first->Interp(w);
     // interpolation between two sets
     } else {
         double E1 = inter.first->energy;
         double E2 = inter.second->energy;
-        res = (inter.first->Interp(w)*std::pow(inter.first->energy/E0, 2)*(E2 - E0)
-               + inter.second->Interp(w)*std::pow(inter.first->energy/E0, 2)*(E0 - E1))
+        res = (inter.first->Interp(w)*(E2 - E0) + inter.second->Interp(w)*(E0 - E1))
               / (E2 - E1);
     }
 
-    // scale by Mott
-    return res;
+    // scale by Q2
+    return res/Qsq;
 }
 
 // read configuration for the data set
@@ -288,23 +311,22 @@ void CExpData::DataSet::ReadData(const std::string &path, const std::string &lab
         DataPoint new_point(nu, cxsn, stat, syst);
         // calculate ep
         new_point.Ep = energy - nu;
-        new_point.v = nu/energy;
 
         data.push_back(std::move(new_point));
     }
 }
 
-// interpolation between a data set according to (1 - Ep/E0)
-// return cross section normalized to mott factor
+// interpolation between data sets by invariant mass W
+// it returns the cross section scaled by E0*(E0 - Ep)
 double CExpData::DataSet::Interp(const double &w)
 const
 {
     // for low nu region, it is impossible to extrapolate
-    if(w < data.front().v)
+    if(w < data.front().W)
         return 0.;
     // assuming uniform distribution for high nu region (DIS)
-    if(w >= data.back().v)
-        return data.back().born;
+    if(w >= data.back().W)
+        return data.back().born*data.back().Q2;
 
     // search the position of w
     auto it_pair = cana::binary_search_interval(data.begin(), data.end(), w);
@@ -315,19 +337,18 @@ const
 
     // exact matched
     if(it_pair.first == it_pair.second)
-        return it_pair.first->born;
+        return it_pair.first->born*it_pair.first->Q2;
 
     // only have 2 points, do a straight line interpolation
     if(it_pair.first == data.begin()) {
         const DataPoint &p1 = *it_pair.first;
         const DataPoint &p2 = *it_pair.second;
 
-        double _interp = p1.born*(p2.v - w) + p2.born*(w - p1.v);
+        double _interp = p1.born*p1.Q2*(p2.W - w) + p2.born*p2.Q2*(w - p1.W);
 
         // LATEST CHANGE: removed unknown constant 0.00001 here, 
         // probably some protection for two same points
-        // return _interp/(p2.v - p1.v + 0.00001);
-        return _interp/(p2.v - p1.v);
+        return _interp/(p2.W - p1.W);
     }
 
     // 3 points parabolic fit
@@ -335,13 +356,13 @@ const
     const DataPoint &p2 = *it_pair.first;
     const DataPoint &p3 = *it_pair.second;
     double x, xp, xm, a, b, c;
-    x = w - p2.v;
-    xp = p3.v - p2.v;
-    xm = p1.v - p2.v;
-    a = p2.born;
-    c = (p3.born - p1.born)*(xp + xm)/(xp - xm) - (p3.born + p1.born - 2*p2.born);
+    x = w - p2.W;
+    xp = p3.W - p2.W;
+    xm = p1.W - p2.W;
+    a = p2.born*p2.Q2;
+    c = (p3.born*p3.Q2 - p1.born*p1.Q2)*(xp + xm)/(xp - xm);
+    c -= (p3.born*p3.Q2 + p1.born*p1.Q2 - 2*p2.born*p2.Q2);
     c /= xp*xm*2;
-    b = (p3.born - p1.born)/(xp - xm) - c*(xp + xm);
+    b = (p3.born*p3.Q2 - p1.born*p1.Q2)/(xp - xm) - c*(xp + xm);
     return (a + b*x + c*x*x);
 }
-

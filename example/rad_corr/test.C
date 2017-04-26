@@ -189,6 +189,16 @@ void model_wrapper_test(double energy, double angle, double nu_min, double nu_ma
     }
 }
 
+void interp_test(double energy = 1000, double nu_beg = 10, double nu_end = 100)
+{
+    CExpData data;
+    data.ReadConfigFile("data_sets_9deg.conf");
+    for(int nu = 10; nu < 100; ++nu)
+    {
+        cout << nu << ", " << data.GetCrossSection(energy, energy - nu) << endl;
+    }
+}
+
 void radcor_test()
 {
     CRadCorr rad_cor;

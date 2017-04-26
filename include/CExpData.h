@@ -21,10 +21,11 @@ public:
         double syst;     // systematic error
 
         // calculated
-        double Ep;       // final energy before coll. loss
-        double v;        // nu/E0
-        double rad;      // Radiated cross section
-        double born;     // Born cross section
+        double Ep;       // final energy before coll. loss (MeV)
+        double W;        // invariant mass (MeV)
+        double Q2;       // four momentum transfer square (MeV^2)
+        double rad;      // Radiated cross section (nb/MeV/sr)
+        double born;     // Born cross section (nb/MeV/sr)
         double last;     // Save info from last iteration
 
         // constructors
@@ -34,10 +35,10 @@ public:
         {};
 
         // for binary search
-        bool operator <(const double &val) const {return v < val;}
-        bool operator >(const double &val) const {return v > val;}
-        bool operator ==(const double &val) const {return v == val;}
-        bool operator !=(const double &val) const {return v != val;}
+        bool operator <(const double &val) const {return W < val;}
+        bool operator >(const double &val) const {return W > val;}
+        bool operator ==(const double &val) const {return W == val;}
+        bool operator !=(const double &val) const {return W != val;}
     };
 
     struct DataSet
@@ -104,9 +105,9 @@ public:
         return (E0 >= data_sets.front().energy && E0 <= data_sets.back().energy);
     }
 
-
 private:
     Settings settings;
+    double targetM, sin2;
     std::vector<DataSet> data_sets;
 };
 
