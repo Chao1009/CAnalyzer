@@ -15,9 +15,10 @@
 const static double __gauss[] = {0.1306, 0.1169, 0.938, 0.674, 0.434, 0.250,
                                  0.129, 0.0598, 0.0248, 0.00921, 0.00306, 0.000912};
 
-CElasTails::CElasTails()
+CElasTails::CElasTails(const std::string &path)
 {
-    // place holder
+    if(!path.empty())
+        Configure(path);
 }
 
 CElasTails::~CElasTails()
@@ -27,18 +28,7 @@ CElasTails::~CElasTails()
 
 void CElasTails::Configure(const std::string &path)
 {
-    if(!path.empty())
-        ConfigObject::Configure(path);
-
-    in_energy = getDefConfig<double>("Beam Energy", 1147.3);
-    scat_angle = getDefConfig<double>("Scattering Angle", 9.03);
-    nu_min = getDefConfig<double>("Minimum Nu", 10.0);
-    nu_max = getDefConfig<double>("Maximum Nu", 780.0);
-
-    radl_in = getDefConfig<double>("Radiation Length In", 0.002073);
-    radl_out = getDefConfig<double>("Radiation Length Out", 0.00876);
-    radl_wall = getDefConfig<double>("Radiation Length Wall", 0.06);
-    radl_out += getDefConfig<double>("Ice Thickness", 0.);
+    ConfigObject::Configure(path);
 
     ang_range = getDefConfig<double>("Angle Range", 6.0);
     ang_step = getDefConfig<double>("Angle Step", 0.06);
@@ -50,13 +40,6 @@ void CElasTails::Configure(const std::string &path)
     finer_step = getDefConfig<double>("Finer Step", 0.1);
     fine_range = getDefConfig<double>("Fine Range", 50.0);
     finer_range = getDefConfig<double>("Finer Range", 15.0);
-
-    std::string file;
-    file = getDefConfig<std::string>("Collimator File", "coll_setup/coll_9deg.txt");
-    setupColl(file);
-
-    file = getDefConfig<std::string>("Acceptance File", "cuts/tight/9degs/cuts_1143.inp");
-    acpt.Read(file);
 
     // pass this file to the model
     he3_model.Configure(path);
@@ -87,8 +70,32 @@ void CElasTails::setupColl(const std::string &path)
     return;
 }
 
-void CElasTails::Generate()
+void CElasTails::Initialize(const CExpData &data, int i)
 {
+    // hard coded value for wall thickness
+    radl_wall = 0.06;
+    scat_angle = data.Angle();
+    in_energy = data.GetSet(i).energy;
+
+    double sin_scat = sin(scat_angle*cana::deg2rad);
+    double sin2 = std::pow(sin(scat_angle*cana::deg2rad/2.), 2);
+    radl_in = data.GetSet(i).radl_before;
+    radl_out = data.GetSet(i).radl_after - radl_wall/10.61/sin_scat;
+
+    setupColl(data.GetSet(i).coll_file);
+    acpt.Read(data.GetSet(i).accpt_file);
+
+    nu_max = data.GetSet(i).data.back().nu + 10.;
+    double target_M = data.TargetA()*cana::amu;
+    nu_elas = int(in_energy - in_energy/(1. + 2.*in_energy*sin2/target_M)) + 1.;
+    nu_min = nu_elas;
+}
+
+void CElasTails::Generate(double nu_beg, double nu_end)
+{
+    if(nu_beg > 0.) nu_min = nu_beg;
+    if(nu_end > 0.) nu_max = nu_end;
+
     // angle range
     double ang_min = scat_angle - ang_range/2.0, ang_max = scat_angle + ang_range/2.0;
 
@@ -204,11 +211,11 @@ void CElasTails::simElasTails(int flag, double angle, double lc)
             fillData(flag, nu_in, sigrad, lc/0.35, angle);
 
         // set nu_in for the next step
-        if(nu_in + 0.9*finer_step <= finer_range)
+        if(nu_in + 0.9*finer_step <= finer_range + nu_elas)
         {
             nu_in += finer_step;
         }
-        else if(nu_in + 0.9*fine_step <= fine_range)
+        else if(nu_in + 0.9*fine_step <= fine_range + nu_elas)
         {
             nu_in += fine_step;
         }
@@ -220,12 +227,12 @@ void CElasTails::simElasTails(int flag, double angle, double lc)
 }
 
 // it is a 2d integral int_es(int_ep)
-inline CElasTails::DataPoint CElasTails::punchThrough(const double &nu,
+inline CElasTails::TailPoint CElasTails::punchThrough(const double &nu,
                                                       const double &tail,
                                                       const double &phi,
                                                       const double &rl)
 {
-    DataPoint point(phi, 0., 0.);
+    TailPoint point(phi, 0., 0.);
     double phi2, wgt;
     double ramoli = 13.6/(in_energy - nu/2.)*74.*sqrt(rl)*(1. + 0.038*log(rl));
 
@@ -257,7 +264,7 @@ void CElasTails::fillData(const int &flag,
                           const double &rlcoll,
                           const double &phi)
 {
-    DataPoint point;
+    TailPoint point;
 
     // no punch through effect
     if(flag == 3)
@@ -275,13 +282,13 @@ void CElasTails::fillData(const int &flag,
     if(point.weight == 0.)
         return;
 
-    auto it = dset.find(nu);
-    if(it == dset.end())
+    auto it = tset.find(nu);
+    if(it == tset.end())
     {
-        std::vector<DataPoint> points;
+        std::vector<TailPoint> points;
         points.reserve(5000);
         points.push_back(point);
-        dset[nu] = points;
+        tset[nu] = points;
     }
     else
     {
@@ -289,7 +296,7 @@ void CElasTails::fillData(const int &flag,
     }
 }
 
-double __average_tail(const std::vector<CElasTails::DataPoint> &data)
+double __average_tail(const std::vector<CElasTails::TailPoint> &data)
 {
     double total_tail = 0., total_weight = 0.;
     for(auto &val : data)
@@ -306,11 +313,11 @@ void CElasTails::Output(const std::string &path)
     std::cout << "Save result to " << path << std::endl;
     std::ofstream outfile(path);
 
-    for(auto &it : dset)
+    for(auto &it : tset)
     {
         outfile << std::setprecision(12);
         outfile << std::setw(8) << in_energy
-                << std::setw(8) << it.first
+                << std::setw(16) << it.first
                 << std::setw(20) << __average_tail(it.second)
                 << std::endl;
     }

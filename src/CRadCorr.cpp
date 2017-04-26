@@ -471,9 +471,6 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb > __Ep_max(E0))
         return 0;
 
-    return interp_source->GetCrossSection(E0, Eb);
-
-    /*
     // interpolation from data
     if(interp_source->InRange(E0)) {
         return interp_source->GetCrossSection(E0, Eb);
@@ -481,7 +478,6 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     } else {
         return from_model(E0, Eb);
     }
-    */
 }
 
 // initialize the model
@@ -576,14 +572,14 @@ inline void CRadCorr::spectrum_init(CExpData::DataSet &s)
         // LATEST CHANGE: replaced b(z) = 4./3. with Eq. A45 from STEIN
         // originally it was an approximated value regardless of Z dependence,
         // ignoring it introducing an error on a few percent level.
-        BTB = (s.radl_before + __ice_radl(s.ice_before))*Bz;
-        BTA = (s.radl_after + __ice_radl(s.ice_after))*Bz;
+        BTB = s.radl_before*Bz;
+        BTA = s.radl_after*Bz;
         if(user_defined_XI) {
-            XIB = s.coll_before + __ice_coll(s.ice_before);
-            XIA = s.coll_after + __ice_coll(s.ice_after);
+            XIB = s.coll_before;
+            XIA = s.coll_after;
         } else {
-            XIB = __XI_Stein(s.radl_before + __ice_radl(s.ice_before));
-            XIA = __XI_Stein(s.radl_after + __ice_radl(s.ice_after));
+            XIB = __XI_Stein(s.radl_before);
+            XIA = __XI_Stein(s.radl_after);
         }
     } else {
         BTB = 0;
@@ -710,29 +706,6 @@ inline double CRadCorr::__XI_Stein(double radl)
     xi /= log(183*std::pow(target_Z, -1./3.));
 
     return xi*radl;
-}
-
-// calculate ice radiation length, input is thickness in mm
-inline double CRadCorr::__ice_radl(double thickness)
-{
-    // hard coded for ice ONLY
-    // http://pdg.lbl.gov/2008/AtomicNuclearProperties/HTML_PAGES/325.html
-    return thickness/393.1;
-}
-
-// calculate ice collisional loss, input is thickness in mm
-// it assumes beta is close to 1, so for electron beam, the beam energy should
-// be far greater than electron's mass
-inline double CRadCorr::__ice_coll(double thickness)
-{
-    // hard coded for ice ONLY
-    // See J. Singh's technical note for details
-    // http://hallaweb.jlab.org/experiment/E97-110/tech/radlength_sagdhv130.pdf
-    // Z/A = 0.55509 mol/g
-    // a = 0.15353747 MeV*(cm^2/mol)
-    // rho = 0.918 g/cm^3
-    return 0.55509*0.15353747*0.918*thickness/10.;
-
 }
 
 template<typename T>

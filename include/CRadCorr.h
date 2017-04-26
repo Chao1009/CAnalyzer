@@ -50,8 +50,6 @@ private:
     double __btr(double E, double Epr);
     double __I(double E0, double E, double xi, double bt);
     double __XI_Stein(double radl);
-    double __ice_radl(double thickness);
-    double __ice_coll(double thickness);
 
 private:
     bool internal_RC, external_RC, user_defined_XI, peak_approx;

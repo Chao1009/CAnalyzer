@@ -54,9 +54,6 @@ void CHe3Elas::Configure(const std::string &path)
     n_sim = getDefConfig<int>("Min Number of Simpson Bins", 10000);
     sim_step = getDefConfig<double>("Simpson Step Size", 0.1);
 
-    user_xi = getDefConfig<bool>("User Defined XI", true);
-    xi_before = getDefConfig<double>("XI Before", 0.007417);
-    xi_after = getDefConfig<double>("XI After", 0.1069);
     polarized = getDefConfig<bool>("Polarized", false);
     pol_angle = getDefConfig<int>("Polarization Angle", 180);
 
@@ -64,6 +61,16 @@ void CHe3Elas::Configure(const std::string &path)
               / (_target_Z + __eta(_target_Z))
               / log(183*std::pow(_target_Z, -1./3.));
 
+
+    // need revisit this part, now keep the Stein formula for it
+    /*
+    user_xi = getDefConfig<bool>("User Defined XI", true);
+    xi_before = getDefConfig<double>("XI Before", 0.007417);
+    xi_after = getDefConfig<double>("XI After", 0.1069);
+    */
+    user_xi = false;
+    xi_before = 0;
+    xi_after = 0;
     rtails_init(user_xi, xi_before, xi_after, polarized, pol_angle);
 }
 

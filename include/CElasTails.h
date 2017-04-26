@@ -2,6 +2,7 @@
 #define C_ELAS_TAILS_H
 
 #include "ConfigObject.h"
+#include "CExpData.h"
 #include "CHe3Elas.h"
 #include <map>
 #include <vector>
@@ -15,17 +16,17 @@
 class CElasTails : public ConfigObject
 {
 public:
-    struct DataPoint
+    struct TailPoint
     {
         double phi, tail, weight;
 
-        DataPoint() {};
-        DataPoint(const double &p) : phi(p) {};
-        DataPoint(const double &p, const double &t, const double &w)
+        TailPoint() {};
+        TailPoint(const double &p) : phi(p) {};
+        TailPoint(const double &p, const double &t, const double &w)
         : phi(p), tail(t), weight(w)
         {};
     };
-    typedef std::map<double, std::vector<DataPoint>> DataSet;
+    typedef std::map<double, std::vector<TailPoint>> TailSet;
 
     class Acceptance
     {
@@ -48,12 +49,13 @@ public:
     };
 
 public:
-    CElasTails();
+    CElasTails(const std::string &path = "");
     virtual ~CElasTails();
 
-    void Configure(const std::string &path = "");
+    void Configure(const std::string &path);
     CHe3Elas &GetModel() {return he3_model;};
-    void Generate();
+    void Initialize(const CExpData &data, int set_idx);
+    void Generate(double nu_beg = -1, double nu_end = -1);
     void Output(const std::string &path);
 
 private:
@@ -65,16 +67,16 @@ private:
                   const double &rlcoll,
                   const double &phi);
     void simElasTails(int flag, double angle, double rloutp);
-    DataPoint punchThrough(const double &nu,
+    TailPoint punchThrough(const double &nu,
                            const double &tail,
                            const double &phi,
                            const double &rl);
 private:
     CHe3Elas he3_model;
     Acceptance acpt;
-    DataSet dset;
+    TailSet tset;
 
-    double in_energy, scat_angle, nu_min, nu_max;
+    double in_energy, scat_angle, nu_min, nu_max, nu_elas;
     double radl_wall, radl_in, radl_out;
     // target collimator geometry
     // Z-position for upstream and downstream target window (cm)

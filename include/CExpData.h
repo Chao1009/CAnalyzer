@@ -49,8 +49,6 @@ public:
         double radl_after;    // radiation length after target
         double coll_before;   // collision thickness before target
         double coll_after;    // collision thickness after target
-        double ice_before;    // ice on the target cell, before
-        double ice_after;     // ice on the target cell, after
         double error;         // relative error for RC
         double normalization; // normalization factor
         bool non_rad;         // non radiated means born cross section from file
@@ -62,7 +60,7 @@ public:
         // constructors
         DataSet()
         : energy(0.), radl_before(0.), radl_after(0.), coll_before(0.), coll_after(0.),
-          ice_before(0.), ice_after(0.), error(0.), normalization(1.), non_rad(false)
+          error(0.), normalization(1.), non_rad(false)
         {};
 
         void ReadConfig(const std::string &conf_str);
@@ -76,7 +74,7 @@ public:
     };
 
 
-    CExpData();
+    CExpData(const std::string &config = "");
     virtual ~CExpData();
 
     void ReadConfigFile(const std::string &path, bool verbose = true);
@@ -93,10 +91,10 @@ public:
     inline double TargetA() const {return settings.targetA;}
     inline size_t Size() const {return data_sets.size();}
     inline bool Empty() const {return data_sets.empty();}
-    inline std::vector<DataSet> &GetSets() {return data_sets;}
-    inline DataSet &GetSet(size_t i) {return data_sets.at(i);}
     inline const std::vector<DataSet> &GetSets() const {return data_sets;}
     inline const DataSet &GetSet(size_t i) const {return data_sets.at(i);}
+    inline std::vector<DataSet> &GetSets() {return data_sets;}
+    inline DataSet &GetSet(size_t i) {return data_sets.at(i);}
     inline bool InRange(const double &E0)
     const
     {

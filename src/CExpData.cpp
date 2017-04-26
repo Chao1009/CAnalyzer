@@ -19,11 +19,36 @@ inline double __W(double Mt, double nu, double Qsq)
     return sqrt(Mt*(Mt + 2*nu) - Qsq);
 }
 
+// calculate ice radiation length, input is thickness in mm
+inline double __ice_radl(double thickness)
+{
+    // hard coded for ice ONLY
+    // http://pdg.lbl.gov/2008/AtomicNuclearProperties/HTML_PAGES/325.html
+    return thickness/393.1;
+}
+
+// calculate ice collisional loss, input is thickness in mm
+// it assumes beta is close to 1, so for electron beam, the beam energy should
+// be far greater than electron's mass
+inline double __ice_coll(double thickness)
+{
+    // hard coded for ice ONLY
+    // See J. Singh's technical note for details
+    // http://hallaweb.jlab.org/experiment/E97-110/tech/radlength_sagdhv130.pdf
+    // Z/A = 0.55509 mol/g
+    // a = 0.15353747 MeV*(cm^2/mol)
+    // rho = 0.918 g/cm^3
+    return 0.55509*0.15353747*0.918*thickness/10.;
+
+}
+
+
 
 // constructor
-CExpData::CExpData()
+CExpData::CExpData(const std::string &config)
 {
-    // place holder
+    if(!config.empty())
+        ReadConfigFile(config);
 }
 
 // destructor
@@ -82,9 +107,13 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
         }
     }
 
-    // read-in data points according to the set data file
+    // pass global settings to each data set
     for(auto &dset : data_sets) {
-        dset.ReadData(combine_path(settings.data_dir, dset.data_file), dset.data_label);
+        dset.data_file = combine_path(settings.data_dir, dset.data_file);
+        dset.coll_file = combine_path(settings.coll_dir, dset.coll_file);
+        dset.accpt_file = combine_path(settings.accpt_dir, dset.accpt_file);
+        // read data points
+        dset.ReadData(dset.data_file, dset.data_label);
     }
 
     // initialize all data sets and sort them in energy transcendent order
@@ -257,8 +286,6 @@ void CExpData::DataSet::ReadConfig(const std::string &config)
     conf::update_config(conf_obj, "Radiation Length After", radl_after);
     conf::update_config(conf_obj, "Collisional Loss Before", coll_before);
     conf::update_config(conf_obj, "Collisional Loss After", coll_after);
-    conf::update_config(conf_obj, "Ice Before", ice_before);
-    conf::update_config(conf_obj, "Ice After", ice_after);
     conf::update_config(conf_obj, "RC Error", error);
     conf::update_config(conf_obj, "Model", non_rad);
     conf::update_config(conf_obj, "Normalization", normalization);
@@ -266,6 +293,15 @@ void CExpData::DataSet::ReadConfig(const std::string &config)
     conf::update_config(conf_obj, "Data Label", data_label);
     conf::update_config(conf_obj, "Acceptance File", accpt_file);
     conf::update_config(conf_obj, "Collimator File", coll_file);
+
+    // update ice thickness and change corresponding values
+    double ice_before = 0., ice_after = 0.;
+    conf::update_config(conf_obj, "Ice Before", ice_before);
+    conf::update_config(conf_obj, "Ice After", ice_after);
+    radl_before += __ice_radl(ice_before);
+    radl_after += __ice_radl(ice_after);
+    coll_before += __ice_coll(ice_before);
+    coll_after += __ice_coll(ice_after);
 }
 
 // read experimental data in the format line by line
