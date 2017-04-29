@@ -18,12 +18,12 @@ public:
     void Configure(const std::string &path);
     void RadiativeCorrection(CExpData &exp_data, int iters = 0);
     void Radiate(CExpData &exp_data);
-    void Initialize(const CExpData &exp_data);
+    void Initialize(const CExpData &exp_data, bool radiate = false);
     bool SanityCheck(const CExpData &exp_data);
 
 private:
-    void radcor(CExpData::DataSet &dset, bool radiate = false);
-    void xyrad2d(CExpData::DataSet &dset, bool radiate = false);
+    void radcor(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
+    void xyrad2d(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
     double fes(const double &Es);
     double fep(const double &Ep);
     double int_es(const double &Es);
@@ -31,8 +31,7 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    void init_model(const CExpData &exp_data, bool radiate = false);
-    void find_model_scale(const CExpData::DataSet &mset);
+    void init_model(const CExpData &exp_data, bool born_level = false);
     double from_model(const double &E0, const double &Eb);
     template<typename T>
     void number_operation(const std::string &key, T &val);
@@ -52,7 +51,7 @@ private:
     double __XI_Stein(double radl);
 
 private:
-    bool internal_RC, external_RC, user_defined_XI, peak_approx;
+    bool internal_RC, external_RC, user_defined_XI, peak_approx, use_model;
     int n_sim, n_sim_2d;
     double iter_prec, sim_step, sim_step_2d;
     double target_Z, target_A, target_M;

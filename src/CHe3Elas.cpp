@@ -69,22 +69,18 @@ void CHe3Elas::Configure(const std::string &path)
     xi_after = getDefConfig<double>("XI After", 0.1069);
     */
     user_xi = false;
-    xi_before = 0;
-    xi_after = 0;
-    rtails_init(user_xi, xi_before, xi_after, polarized, pol_angle);
+    rtails_init(user_xi, polarized, pol_angle);
 }
 
 // initialize
-void CHe3Elas::Initialize(bool uxi, double xib, double xia, bool pol, double pol_th)
+void CHe3Elas::Initialize(bool uxi, bool pol, double pol_th)
 {
     user_xi = uxi;
-    xi_before = xib;
-    xi_after = xia;
     polarized = pol;
     pol_angle = pol_th;
 
     // pass inputs to initialize rtails
-    rtails_init(user_xi, xi_before, xi_after, polarized, pol_angle);
+    rtails_init(user_xi, polarized, pol_angle);
 }
 
 // input: Four momentum transfer in fm^(-2)
@@ -143,20 +139,30 @@ double CHe3Elas::GetBornXS(const double &Es, const double &theta)
 // input in MeV, rad, unit rad length
 // output in ub/MeV/sr
 double CHe3Elas::GetRadXS(const double &Es, const double &Ep, const double &theta,
-                          const double &radl_before, const double &radl_after)
+                          const double &radl_in, const double &radl_out,
+                          const double &xi_in, const double &xi_out)
 {
     if(xy_method) {
-        return xyradel(Es, Ep, theta, radl_before, radl_after);
+        BTB = radl_in*Bz, BTA = radl_out*Bz;
+        if(!user_xi) {
+            xi_before = radl_in*xi_factor;
+            xi_after = radl_out*xi_factor;
+        } else {
+            xi_before = xi_in;
+            xi_after = xi_out;
+        }
+        return xyradel(Es, Ep, theta);
     } else {
         double sigrad;
-        rtails_rad_cxsn(Es, Ep, theta, radl_before, radl_after, &sigrad);
+        rtails_set_radl(radl_in, radl_out, xi_in, xi_out);
+        rtails_rad_cxsn(Es, Ep, theta, &sigrad);
         return sigrad;
     }
 }
 
 // output for xyradel, unit is ub/MeV/sr
-double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta,
-                         const double &radl_before, const double &radl_after)
+// radiation length and collisional loss are determined in GetRadXS
+double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta)
 {
     // update angle dependent terms
     sin2 = std::pow(sin(theta/2.), 2);
@@ -171,13 +177,7 @@ double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta
     Schwinger = cana::pi*cana::pi/6 - cana::spence(cos2);
 
     // update radiation lengths and gamma_t, it is needed by Fbar
-    BTB = radl_before*Bz, BTA = radl_after*Bz;
     GAMT = cana::gamma(1. + BTB) * cana::gamma(1. + BTA);
-
-    if(!user_xi) {
-        xi_before = radl_before*xi_factor;
-        xi_after = radl_after*xi_factor;
-    }
 
     // singularity parts
     double Fbar = __F_bar(Es, Ep, GAMT);

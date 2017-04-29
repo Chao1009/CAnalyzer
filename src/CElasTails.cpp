@@ -85,7 +85,7 @@ void CElasTails::Initialize(const CExpData &data, int i)
     setupColl(data.GetSet(i).coll_file);
     acpt.Read(data.GetSet(i).accpt_file);
 
-    nu_max = data.GetSet(i).data.back().nu + 10.;
+    nu_max = data.GetSet(i).data.back().nu + 5*step;
     double target_M = data.TargetA()*cana::amu;
     nu_elas = int(in_energy - in_energy/(1. + 2.*in_energy*sin2/target_M)) + 1.;
     nu_min = nu_elas;

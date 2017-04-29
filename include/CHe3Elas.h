@@ -11,16 +11,16 @@ public:
     virtual ~CHe3Elas();
 
     void Configure(const std::string &path = "");
-    void Initialize(bool uxi, double xib, double xia, bool pol, double pol_th);
+    void Initialize(bool uxi, bool pol, double pol_th);
     // unit: MeV, rad, radiation length, ub/MeV/sr
     double GetRadXS(const double &Es, const double &Ep, const double &theta,
-                    const double &radl_in, const double &radl_out);
+                    const double &radl_in, const double &radl_out,
+                    const double &xi_in = 0., const double &xi_out = 0.);
     static void GetEMFFs(const double &Q2, double &GE, double &GM);
     static double GetBornXS(const double &Es, const double &angle);
 
 private:
-    double xyradel(const double &Es, const double &Ep, const double &theta,
-                   const double &radl_before, const double &radl_after);
+    double xyradel(const double &Es, const double &Ep, const double &theta);
     double int_es(const double &Esx, const double &theta, const double &Es, const double &Ep);
     double __Ep_max(double _Es);
     double __Es_min(double _Ep);
@@ -34,7 +34,8 @@ private:
 
 private:
     double delta1, delta2, sin2, cos2, Schwinger;
-    double BTB, BTA, Bz, GAMT, sim_step, xi_before, xi_after, xi_factor;
+    double BTB, BTA, Bz, GAMT, sim_step, xi_factor;
+    double xi_before, xi_after;
     int n_sim, pol_angle;
     bool user_xi, polarized, xy_method;
 };

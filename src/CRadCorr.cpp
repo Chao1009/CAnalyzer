@@ -7,7 +7,7 @@
 #include <algorithm>
 
 // a hack pointer to make passing parameters for simpson integration easier
-const CExpData *interp_source;
+const CExpData *interp_source = nullptr;
 
 
 
@@ -39,6 +39,7 @@ void CRadCorr::Configure(const std::string &path)
     external_RC = getDefConfig<bool>("External RC", true);
     user_defined_XI = getDefConfig<bool>("User Defined XI", true);
     peak_approx = getDefConfig<bool>("Energy Peaking Approximation", false);
+    use_model = getDefConfig<bool>("Extrapolation By Model", false);
 
     // calculation related
     iter_prec = getDefConfig<double>("Iteration Precision", 0.005);
@@ -58,10 +59,8 @@ void CRadCorr::Configure(const std::string &path)
 
 
 // pre-calculate some terms that won't change during radiation calculation
-void CRadCorr::Initialize(const CExpData &exp_data)
+void CRadCorr::Initialize(const CExpData &exp_data, bool radiate)
 {
-    interp_source = &exp_data;
-
     // target
     target_Z = exp_data.TargetZ();
     target_A = exp_data.TargetA();
@@ -81,6 +80,14 @@ void CRadCorr::Initialize(const CExpData &exp_data)
     Bz = 1./9.*(target_Z + 1.)/(target_Z + __eta(target_Z));
     Bz /= log(183.*std::pow(target_Z, -1./3.));
     Bz = 4./3.*(1. + Bz);
+
+    if(use_model) {
+        // force using model for initializing
+        interp_source = nullptr;
+        init_model(exp_data, radiate);
+    }
+
+    interp_source = &exp_data;
 }
 
 // test some configuration values, warn some simple mistake
@@ -119,7 +126,7 @@ bool CRadCorr::SanityCheck(const CExpData &exp_data)
 // if else, it will do iterations until the result diff. reached the iter_prec
 void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 {
-    Initialize(exp_data);
+    Initialize(exp_data, false);
 
     if(!SanityCheck(exp_data))
         return;
@@ -128,8 +135,6 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 
     for(int iter = 1; (iter <= iters) || end_by_prec; ++iter)
     {
-        init_model(exp_data);
-
         // do radiative correction for all data sets
         for(auto &dset : exp_data.GetSets())
         {
@@ -186,15 +191,13 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 // radiate data sets
 void CRadCorr::Radiate(CExpData &exp_data)
 {
-    Initialize(exp_data);
+    Initialize(exp_data, true);
 
     if(!SanityCheck(exp_data))
         return;
 
     for(auto &s : exp_data.GetSets())
     {
-        init_model(exp_data, true);
-
         // only radiate for Born Level
         if(!s.non_rad)
             continue;
@@ -250,7 +253,7 @@ void CRadCorr::Radiate(CExpData &exp_data)
 //           Phys. Rev. D 5, 528 - 544 (Feb. 1972)                              
 //           http://link.aps.org/abstract/PRD/v5/p528                           
 //==============================================================================
-void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
+void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
 {
     spectrum_init(s);
 
@@ -258,8 +261,11 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
     // iteration on data points
     for(auto &point : s.data)
     {
-        std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
-                  << std::flush;
+        if(verbose) {
+            std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
+                      << std::flush;
+        }
+
         point_init(point);
 
         // components of SIGRAD
@@ -272,22 +278,26 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
 
         // calculate integral along dEs for fixed Ep SIGBEF
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
-            std::cout << "Skip point at Ep = " << Ep
-                      << ", in spectrum E = " << Es
-                      << ", ESMIN = " << Esmin
-                      << ", ESMAX = " << Esmax
-                      << std::endl;
+            if(verbose) {
+                std::cout << "Skip point at Ep = " << Ep
+                          << ", in spectrum E = " << Es
+                          << ", ESMIN = " << Esmin
+                          << ", ESMAX = " << Esmax
+                          << std::endl;
+            }
         } else {
             SIGBEF = cana::simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
         }
 
         // calculate integral along dEp for fixed Es SIGAFT
         if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
-            std::cout << "Skip point at Ep = " << Ep
-                      << ", in spectrum E = " << Es
-                      << ", EPMIN = " << Esmin
-                      << ", EPMAX = " << Esmax
-                      << std::endl;
+            if(verbose) {
+                std::cout << "Skip point at Ep = " << Ep
+                          << ", in spectrum E = " << Es
+                          << ", EPMIN = " << Esmin
+                          << ", EPMAX = " << Esmax
+                          << std::endl;
+            }
         } else {
             SIGAFT = cana::simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
         }
@@ -302,7 +312,11 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate)
             point.born = (point.rad - (SIGBEF+SIGAFT))/SIGLOW;
         }
     }
-    std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
+
+    if(verbose) {
+        std::cout << "Data points: " << count << "/" << s.data.size() << ", finished!"
+                  << std::endl;
+    }
 }
 
 // for integral along dEs
@@ -357,7 +371,7 @@ double CRadCorr::fep(const double &Epx)
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
 //==============================================================================
-void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
+void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
 {
     spectrum_init(s);
 
@@ -365,8 +379,11 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
     // iteration on data points
     for(auto &point : s.data)
     {
-        std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
-                  << std::flush;
+        if(verbose) {
+            std::cout << "Data points: " << count++ << "/" << s.data.size() << "\r"
+                      << std::flush;
+        }
+
         point_init(point);
 
         // components of SIGRAD
@@ -383,22 +400,26 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
                        *(1. - XIA/(1. - BTA - BTR)/delta2);
 
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
-            std::cout << "Skip point at Ep = " << Ep
-                      << ", in spectrum E = " << Es
-                      << ", ESMIN = " << Esmin
-                      << ", ESMAX = " << Esmax
-                      << std::endl;
+            if(verbose) {
+                std::cout << "Skip point at Ep = " << Ep
+                          << ", in spectrum E = " << Es
+                          << ", ESMIN = " << Esmin
+                          << ", ESMAX = " << Esmax
+                          << std::endl;
+            }
         } else {
             int_2d = cana::simpson(Esmin, Esmax, &CRadCorr::int_es, this, sim_step_2d, n_sim_2d);
             sgl_Ep = cana::simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
         }
 
         if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
-            std::cout << "Skip point at Ep = " << Ep
-                      << ", in spectrum E = " << Es
-                      << ", EPMIN = " << Esmin
-                      << ", EPMAX = " << Esmax
-                      << std::endl;
+            if(verbose) {
+                std::cout << "Skip point at Ep = " << Ep
+                          << ", in spectrum E = " << Es
+                          << ", EPMIN = " << Esmin
+                          << ", EPMAX = " << Esmax
+                          << std::endl;
+            }
         } else {
             sgl_Es = cana::simpson(Epmin, Epmax, &CRadCorr::int_ep, this, sim_step, n_sim);
             // Es singularity
@@ -417,7 +438,11 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate)
             point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d))/sgl_both;
         }
     }
-    std::cout << "Data points: " << count << "/" << s.data.size() << std::endl;
+
+    if(verbose) {
+        std::cout << "Data points: " << count << "/" << s.data.size() << ", finished!"
+                  << std::endl;
+    }
 
 }
 
@@ -471,86 +496,118 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
     if(Eb > __Ep_max(E0))
         return 0;
 
-    // interpolation from data
-    if(interp_source->InRange(E0)) {
-        return interp_source->GetCrossSection(E0, Eb);
-    // extrapolation from model
-    } else {
+    // use model for extrapolation
+    if(!interp_source || (use_model && !interp_source->InRange(E0))) {
         return from_model(E0, Eb);
+    // interpolation from model
+    } else {
+        return interp_source->GetCrossSection(E0, Eb);
     }
+}
+
+// a helper function to find the peak point
+typedef std::vector<CExpData::DataPoint>::const_iterator CIter;
+CIter find_peak(const std::vector<CExpData::DataPoint> &data, bool born_level)
+{
+    // find the peak point of the first data set
+    CIter res;
+    double peak_xs = 0.;
+
+    for(auto it = data.cbegin(); it != data.cend(); ++it)
+    {
+        if(!born_level && it->rad > peak_xs) {
+            peak_xs = it->rad;
+            res = it;
+        }
+
+        if(born_level && it->born > peak_xs) {
+            peak_xs = it->born;
+            res = it;
+        }
+    }
+
+    return res;
 }
 
 // initialize the model
 // determine the scale and shift from the data at lowest energy
-void CRadCorr::init_model(const CExpData &exp_data, bool radiate)
+void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
 {
-    if(exp_data.Empty())
+    model_scale = 1.0, model_shift = 0.0;
+
+    // copy the first data set
+    CExpData::DataSet model_data;
+    for(auto &dset : exp_data.GetSets())
+    {
+        if(!born_level && !dset.non_rad) {
+            model_data = dset;
+            break;
+        }
+
+        if(born_level && dset.non_rad) {
+            model_data = dset;
+            break;
+        }
+    }
+
+    // cannot find the data set or there are no data points
+    if(model_data.data.empty())
         return;
 
-    // for radiate, just match the built-in model with input data set
-    if(radiate) {
-        find_model_scale(exp_data.GetSet(0));
+    std::cout << "Initializing model scaling and shifting factors from data "
+              << "E = " << model_data.energy
+              << std::endl;
+
+    auto max_it = find_peak(model_data.data, born_level);
+    size_t max_idx = max_it - model_data.data.begin();
+    CExpData::DataPoint max_point(*max_it);
+
+    // keep the i +- 20 points around the data set
+    std::vector<CExpData::DataPoint> model_points;
+    size_t beg = (max_idx > 20) ? (max_idx - 20) : 0;
+    size_t end = max_idx + 20;
+    for(size_t i = beg; i < end && i < model_data.data.size(); ++i)
+    {
+        CExpData::DataPoint point = model_data.data.at(i);
+        point.born = from_model(model_data.energy, point.Ep);
+        model_points.push_back(point);
+    }
+    model_data.data = model_points;
+
+    // if non-radiated, we can get the model scale factor now
+    if(born_level) {
+        CExpData::DataPoint max_model(*find_peak(model_data.data, born_level));
+        model_scale = max_point.born/max_model.born;
+
+    // radiated will be a little bit more complicated
     } else {
-        // for radiative correction, find the lowest energy set for real data sets
-        // and match it with the built-in model
-        size_t i = 0;
-        for(; i < exp_data.Size(); ++i)
+        // iteratively determine the model scale factor
+        int model_iter = 0;
+        while(model_iter++ < 20)
         {
-            if(!exp_data.GetSet(i).non_rad) {
+            if(peak_approx)
+                radcor(model_data, true, false);
+            else
+                xyrad2d(model_data, true, false);
+
+            CExpData::DataPoint max_model(*find_peak(model_data.data, born_level));
+
+            model_scale *= max_point.rad/max_model.rad;
+
+            // good agreement, no need to continue
+            if(std::abs(1.0 - max_point.rad/max_model.rad) < 0.001)
                 break;
+
+            // update for next iteration
+            for(auto &point : model_data.data)
+            {
+                point.born = from_model(model_data.energy, point.Ep);
             }
         }
-
-        if(i < exp_data.Size()) {
-            find_model_scale(exp_data.GetSet(i));
-        } else {
-            std::cerr << "Cannot find experimental data set to scale model."
-                      << std::endl;
-        }
-    }
-}
-
-// Determines the scale and shift from the peak value, so the data set should has
-// QE peak or delta resonance peak, otherwise it will be problematic
-void CRadCorr::find_model_scale(const CExpData::DataSet &mset)
-{
-    // find the peak point
-    unsigned int ip = 0;
-    double max_xs = 0.;
-    for(unsigned int i = 0; i < mset.data.size(); ++i)
-    {
-        const CExpData::DataPoint &p = mset.data.at(i);
-        if(p.born > max_xs) {
-            ip = i;
-            max_xs = p.born;
-        }
     }
 
-    // the maximum point
-    const CExpData::DataPoint &mpoint = mset.data.at(ip);
-
-    max_xs = 0.;
-    double cxsn = 0; //, max_nu = 0.;
-    // we search the QE peak in the model for a +-20 MeV range
-    for(double nu = std::max(5., mpoint.nu - 20.); nu < mpoint.nu + 20.; nu += 1.0)
-    {
-        QFS_xs(target_Z, target_A, mset.energy, (mset.energy - nu), theta, &cxsn);
-        if(max_xs < cxsn)
-        {
-            max_xs = cxsn;
-            //max_nu = nu;
-        }
-    }
-
-    model_scale = mpoint.born/max_xs;
-    // do not apply shift now, need more study
-//    model_shift = mpoint.nu - max_nu;
-
-    std::cout << "Determined model scale and shift from spectrum at "
-              << mset.energy << " MeV. "
-              << std::endl
-              << "Scale = " << model_scale << ", "
-              << "shift = " << model_shift
+    std::cout << "Initialized, model scale = " << model_scale
+              << ", model shift = " << model_shift
               << std::endl;
 }
 

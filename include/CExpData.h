@@ -21,7 +21,7 @@ public:
         double syst;     // systematic error
 
         // calculated
-        double Ep;       // final energy before coll. loss (MeV)
+        double Ep;       // final energy (MeV)
         double W;        // invariant mass (MeV)
         double Q2;       // four momentum transfer square (MeV^2)
         double rad;      // Radiated cross section (nb/MeV/sr)

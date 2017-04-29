@@ -212,16 +212,16 @@
 ! XI related settings and polarization settings
 ! It also initializes all the COMMON BLOCKS that will be used by the subroutines
 ! throughout the whole program, the target is fixed to Helium-3 for our case
-      SUBROUTINE RTAILS_INIT(xi_bool, xib, xia, pol_bool, pol_theta)
+      SUBROUTINE RTAILS_INIT(xi_bool, pol_bool, pol_theta)
      &BIND(C, name = "rtails_init")
 !-----------------------------------------------------------------------
       USE, INTRINSIC :: ISO_C_BINDING
 
       IMPLICIT REAL*8 (A-H, O-Z)
-      REAL(C_DOUBLE), INTENT(IN), VALUE :: xib, xia, pol_theta
+      REAL(C_DOUBLE), INTENT(IN), VALUE :: pol_theta
       LOGICAL(C_BOOL), INTENT(IN), VALUE :: xi_bool, pol_bool
       LOGICAL USERXI,POLARIZED,AMROUN_OR_MSW
-      REAL*8 USER_XIB,USER_XIA,EINC,EFIN,THETA,M,MT,MTF
+      REAL*8 EINC,EFIN,THETA,M,MT,MTF
       INTEGER IPOL,ITARGET,NKLG,IG
 
       COMMON /MASS/M,MT,MTF
@@ -242,8 +242,6 @@
       DATA      M/0.510998918D0/          ! electron mass, MeV
 
       USERXI = xi_bool
-      USER_XIB = xib
-      USER_XIA = xia
       POLARIZED = pol_bool
       STHETA = pol_theta
 
@@ -288,19 +286,38 @@
 
       END SUBROUTINE RTAILS_INIT
 
+!-----------------------------------------------------------------------
+! A interface to C/C++, set radiation length and user defined collisional loss
+      SUBROUTINE RTAILS_SET_RADL(rlb, rla, xib, xia)
+     &BIND(C, name = "rtails_set_radl")
+!-----------------------------------------------------------------------
+      USE, INTRINSIC :: ISO_C_BINDING
+      IMPLICIT REAL*8 (A-H, O-Z)
+      REAL(C_DOUBLE), INTENT(IN), VALUE :: rlb, rla, xib, xia
+      REAL*8 USER_XIB,USER_XIA,TWB,TWA
+
+      COMMON /TARGET/TWB,TWA,TTB,TTA,ZWB,ZWA,ZT
+      COMMON /XISTUFF/USER_XIB,USER_XIA,USERXI
+
+      TWB = rlb
+      TWA = rla
+      USER_XIA = xia
+      USER_XIB = xib
+
+      END SUBROUTINE RTAILS_SET_RADL
 
 
 !-----------------------------------------------------------------------
 ! A interface to C/C++, generate the cross section with radiation effects
 ! It accepts Es Ep in MeV, theta in rad, and radiation length before and after
 ! It returns sigrad in ub/MeV/sr
-      SUBROUTINE RTAILS_RAD_CXSN(es, ep, th, rlin, rlout, sigrad)
+      SUBROUTINE RTAILS_RAD_CXSN(es, ep, th, sigrad)
      &BIND(C, name = "rtails_rad_cxsn")
 !-----------------------------------------------------------------------
       USE, INTRINSIC :: ISO_C_BINDING
 
       IMPLICIT REAL*8 (A-H, O-Z)
-      REAL(C_DOUBLE), INTENT(IN), VALUE :: es, ep, th, rlin, rlout
+      REAL(C_DOUBLE), INTENT(IN), VALUE :: es, ep, th
       REAL(C_DOUBLE), INTENT(OUT) :: sigrad
       LOGICAL INCREM,POLARIZED
       INTEGER IPOL
@@ -319,8 +336,6 @@
       EINC = es
       EFIN = ep
       THETA = th
-      TWB = rlin
-      TWA = rlout
 
       CALL FBAR(THETA)
       CALL EXTERNL(XEXTB, XEXTA, FSOFT, XINT)
