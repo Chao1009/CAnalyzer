@@ -68,7 +68,7 @@
       real(C_DOUBLE), intent(IN), value :: Z, A, Qsq, Wsq
       real(C_DOUBLE), intent(OUT) :: F1, F2, rc
 
-      call F1F2IN09(Z, A, Qsq*1.0D-6, Wsq*1.0D-6, F1, F2, rc)
+      call F1F2IN09(Z, A, Qsq, Wsq, F1, F2, rc)
       END SUBROUTINE F1F2IN09_C
 
 
@@ -84,7 +84,7 @@
       real(C_DOUBLE), intent(IN), value :: Z, A, Qsq, Wsq
       real(C_DOUBLE), intent(OUT) :: F1, F2
 
-      call F1F2QE09(Z, A, Qsq*1.0D-6, Wsq*1.0D-6, F1, F2)
+      call F1F2QE09(Z, A, Qsq, Wsq, F1, F2)
       END SUBROUTINE F1F2QE09_C
 
 

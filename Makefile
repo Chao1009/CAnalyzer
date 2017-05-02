@@ -57,6 +57,7 @@ CXX_SOURCES   = canalib \
                 CEstimator \
                 CElasTails \
                 CHe3Elas \
+				CModelWrapper
 
 F_SUFFIX      = f
 F_SOURCES     = BostedFit \

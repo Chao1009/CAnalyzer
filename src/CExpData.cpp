@@ -134,7 +134,7 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
 }
 
 // save result to the path
-void CExpData::SaveResult(const std::string &path)
+void CExpData::SaveResult(const std::string &path, bool save_model)
 const
 {
     std::ofstream output(path);
@@ -156,7 +156,7 @@ const
            << std::endl;
     for(auto &dset : data_sets)
     {
-        if(dset.non_rad)
+        if(!save_model && dset.non_rad)
             continue;
 
         for(auto &point : dset.data)
@@ -213,7 +213,8 @@ void CExpData::DataUpdate()
 {
     // pre-calculate variable to save time
     sin2 = std::pow(sin(settings.angle*cana::deg2rad/2.), 2);
-    targetM = cana::neutron_mass;
+    // inelastic part, electron-nucleon reactions
+    targetM = cana::proton_mass;
 
     for(auto &dset : data_sets)
     {

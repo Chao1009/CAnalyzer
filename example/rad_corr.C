@@ -33,7 +33,7 @@ void rad_corr()
         cout << "OFF" << endl;
 
     CExpData data;
-    data.ReadConfigFile("configs/data_sets_9deg.conf");
+    data.ReadConfigFile("configs/data_sets_6deg.conf");
 
 //    rad_cor.Radiate();
     rad_cor.RadiativeCorrection(data);

@@ -167,25 +167,38 @@ void function_test()
 void model_wrapper_test(double energy, double angle, double nu_min, double nu_max)
 {
     double Z = 2.0, A = 3.0, Q2 = 1.0, W2 = 0.5;
-    double f1, f2, rc;
-    Bosted_f1f2in09(Z, A, Q2, W2, &f1, &f2, &rc);
-    cout << f1 << ", " << f2 << endl;
-    Bosted_f1f2qe09(Z, A, Q2, W2, &f1, &f2);
-    cout << f1 << ", " << f2 << endl;
 
+    CModelWrapper wrapper;
     ofstream outf("test_model.dat");
-    double xs;
+    double xs1, xs2, xs3;
     for(double nu = nu_min; nu <= nu_max; nu += 1.0)
     {
-        Bosted_xs(Z, A, energy, energy - nu, angle*cana::deg2rad, &xs);
-        cout << "BST: " << nu << ", " << xs << endl;
+        Bosted_xs(Z, A, energy, energy - nu, angle*cana::deg2rad, &xs1);
+        QFS_xs(Z, A, energy, energy - nu,angle*cana::deg2rad, &xs2);
+        xs3 = wrapper.GetCrossSection(energy, energy - nu, angle);
         outf << setw(8) << nu
-             << setw(20) << xs
-             << setw(20) << 0
-             << setw(20) << 0
+             << setw(20) << xs1
+             << setw(20) << xs2
+             << setw(20) << xs3
              << endl;
-        QFS_xs(Z, A, energy, energy - nu,angle*cana::deg2rad, &xs);
-        cout << "QFS: " << nu << ", " << xs << endl;
+    }
+}
+
+void init_model_test()
+{
+    CRadCorr rad_cor;
+    rad_cor.Configure("configs/rad_corr.conf");
+
+    CExpData data;
+    data.ReadConfigFile("configs/data_sets_6deg.conf");
+
+    rad_cor.Initialize(data);
+
+    for(int nu = 10; nu < 200; ++nu)
+    {
+        cout << nu << ", "
+             << rad_cor.GetModel().GetCrossSection(2135, 2135 - nu, 6.10*cana::deg2rad)
+             << endl;
     }
 }
 

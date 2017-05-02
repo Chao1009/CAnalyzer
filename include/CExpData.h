@@ -83,7 +83,7 @@ public:
 
     double GetCrossSection(const double &E0, const double &Eb) const;
     void DataUpdate();
-    void SaveResult(const std::string &path) const;
+    void SaveResult(const std::string &path, bool save_model = false) const;
 
     inline const Settings &GetSettings() const {return settings;}
     inline double Angle() const {return settings.angle;}

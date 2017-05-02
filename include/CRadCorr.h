@@ -20,6 +20,7 @@ public:
     void Radiate(CExpData &exp_data);
     void Initialize(const CExpData &exp_data, bool radiate = false);
     bool SanityCheck(const CExpData &exp_data);
+    const CModelWrapper &GetModel() {return model;}
 
 private:
     void radcor(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
@@ -32,13 +33,13 @@ private:
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
     void init_model(const CExpData &exp_data, bool born_level = false);
-    double from_model(const double &E0, const double &Eb);
+    void init_model_range(const CExpData::DataSet &ref_set);
     template<typename T>
     void number_operation(const std::string &key, T &val);
 
     // some lines
-    void spectrum_init(CExpData::DataSet &dset);
-    void point_init(CExpData::DataPoint &point);
+    void spectrum_init(const CExpData::DataSet &dset);
+    void point_init(const CExpData::DataPoint &point);
     double __Ep_max(double Es);
     double __Es_min(double Ep);
     double __phi(double x);
@@ -63,8 +64,7 @@ private:
     double Ep, R, BTR, Epmin, Epmax, Esmin, Esmax;       // for each data point
 
     // model related
-    double model_scale;
-    double model_shift;
+    CModelWrapper model;
 };
 
 #endif

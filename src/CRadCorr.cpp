@@ -13,7 +13,6 @@ const CExpData *interp_source = nullptr;
 
 // constructor
 CRadCorr::CRadCorr()
-: model_scale(1.0), model_shift(0.0)
 {
     // place holder
 }
@@ -498,7 +497,7 @@ inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 
     // use model for extrapolation
     if(!interp_source || (use_model && !interp_source->InRange(E0))) {
-        return from_model(E0, Eb);
+        return model.GetCrossSection(E0, Eb, theta);
     // interpolation from model
     } else {
         return interp_source->GetCrossSection(E0, Eb);
@@ -533,51 +532,52 @@ CIter find_peak(const std::vector<CExpData::DataPoint> &data, bool born_level)
 // determine the scale and shift from the data at lowest energy
 void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
 {
-    model_scale = 1.0, model_shift = 0.0;
-
     // copy the first data set
-    CExpData::DataSet model_data;
+    CExpData::DataSet model_set;
     for(auto &dset : exp_data.GetSets())
     {
         if(!born_level && !dset.non_rad) {
-            model_data = dset;
+            model_set = dset;
             break;
         }
 
         if(born_level && dset.non_rad) {
-            model_data = dset;
+            model_set = dset;
             break;
         }
     }
 
     // cannot find the data set or there are no data points
-    if(model_data.data.empty())
+    if(model_set.data.empty())
         return;
 
     std::cout << "Initializing model scaling and shifting factors from data "
-              << "E = " << model_data.energy
+              << "E = " << model_set.energy
               << std::endl;
 
-    auto max_it = find_peak(model_data.data, born_level);
-    size_t max_idx = max_it - model_data.data.begin();
+    // initialize model
+    init_model_range(model_set);
+
+    auto max_it = find_peak(model_set.data, born_level);
+    size_t max_idx = max_it - model_set.data.begin();
     CExpData::DataPoint max_point(*max_it);
 
     // keep the i +- 20 points around the data set
     std::vector<CExpData::DataPoint> model_points;
     size_t beg = (max_idx > 20) ? (max_idx - 20) : 0;
     size_t end = max_idx + 20;
-    for(size_t i = beg; i < end && i < model_data.data.size(); ++i)
+    for(size_t i = beg; i < end && i < model_set.data.size(); ++i)
     {
-        CExpData::DataPoint point = model_data.data.at(i);
-        point.born = from_model(model_data.energy, point.Ep);
+        CExpData::DataPoint point = model_set.data.at(i);
+        point.born = model.GetCrossSection(model_set.energy, point.Ep, exp_data.Angle()*cana::deg2rad);
         model_points.push_back(point);
     }
-    model_data.data = model_points;
+    model_set.data = model_points;
 
     // if non-radiated, we can get the model scale factor now
     if(born_level) {
-        CExpData::DataPoint max_model(*find_peak(model_data.data, born_level));
-        model_scale = max_point.born/max_model.born;
+        CExpData::DataPoint max_model(*find_peak(model_set.data, born_level));
+        model.SetNormalization(max_point.born/max_model.born);
 
     // radiated will be a little bit more complicated
     } else {
@@ -586,43 +586,55 @@ void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
         while(model_iter++ < 20)
         {
             if(peak_approx)
-                radcor(model_data, true, false);
+                radcor(model_set, true, false);
             else
-                xyrad2d(model_data, true, false);
+                xyrad2d(model_set, true, false);
 
-            CExpData::DataPoint max_model(*find_peak(model_data.data, born_level));
+            CExpData::DataPoint max_model(*find_peak(model_set.data, born_level));
 
-            model_scale *= max_point.rad/max_model.rad;
+            model.SetNormalization(model.GetNormalization()*max_point.rad/max_model.rad);
 
             // good agreement, no need to continue
             if(std::abs(1.0 - max_point.rad/max_model.rad) < 0.001)
                 break;
 
             // update for next iteration
-            for(auto &point : model_data.data)
+            for(auto &point : model_set.data)
             {
-                point.born = from_model(model_data.energy, point.Ep);
+                point.born = model.GetCrossSection(model_set.energy, point.Ep, exp_data.Angle()*cana::deg2rad);
             }
         }
     }
 
-    std::cout << "Initialized, model scale = " << model_scale
-              << ", model shift = " << model_shift
+    std::cout << "Initialized, model scale = " << model.GetNormalization()
               << std::endl;
 }
 
-// get cross sections from model
-inline double CRadCorr::from_model(const double &E0, const double &Eb)
+void CRadCorr::init_model_range(const CExpData::DataSet &ref)
 {
-    // bosted model
-    double cxsn;
-    QFS_xs(target_Z, target_A, E0, Eb - model_shift, theta, &cxsn);
-    //Bosted_xs(target_Z, target_A, E0, Eb - model_shift, angle, &cxsn);
-    return cxsn*model_scale;
+    // define Q^2 and W range according to the first data set
+    const CExpData::DataPoint first_point = ref.data.front();
+    double W_min = first_point.W, W_max = first_point.W;
+    double Q2_min = first_point.Q2, Q2_max = first_point.Q2;
+    for(auto &point : ref.data)
+    {
+        if(point.W < W_min) W_min = point.W;
+        if(point.W > W_max) W_max = point.W;
+        point_init(point);
+        if(__Q2(Esmin, Epmin) < Q2_min) Q2_min = __Q2(Esmin, Epmin);
+        if(__Q2(Esmax, Epmax) > Q2_max) Q2_max = __Q2(Esmax, Epmax);
+    }
+
+    Q2_min *= 0.9, Q2_max *= 1.1;
+    W_min *= 0.9, W_max *= 1.1;
+    double Q2_step = 100., W_step = 1.;
+    int W_bins = cana::clamp(int((W_max - W_min)/W_step) + 1, 200, 2000);
+    int Q2_bins = cana::clamp(int((Q2_max - Q2_min)/Q2_step) + 1, 100, 500);
+    model.SetRange(Q2_min, Q2_max, Q2_bins, W_min, W_max, W_bins);
 }
 
 // spectrum based kinematics intialization
-inline void CRadCorr::spectrum_init(CExpData::DataSet &s)
+inline void CRadCorr::spectrum_init(const CExpData::DataSet &s)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
@@ -653,7 +665,7 @@ inline void CRadCorr::spectrum_init(CExpData::DataSet &s)
 }
 
 // data point based kinematics initialization
-inline void CRadCorr::point_init(CExpData::DataPoint &point)
+inline void CRadCorr::point_init(const CExpData::DataPoint &point)
 {
     // kinematics
     Ep = point.Ep;
