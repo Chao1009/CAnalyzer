@@ -76,6 +76,13 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
     // read in file
     std::string buffer = ConfigParser::file_to_string(path);
 
+    if(buffer.empty()) {
+        std::cerr << "Cannot open configuration file \"" << path << "\", "
+                  << "or the file has no contents."
+                  << std::endl;
+        return;
+    }
+
     // remove comments
     ConfigParser::comment_between(buffer, "/*", "*/");
     ConfigParser::comment_line(buffer, "//", "\n");
@@ -314,7 +321,6 @@ void CExpData::DataSet::ReadConfig(const std::string &config)
 void CExpData::DataSet::ReadData(const std::string &path, const std::string &label)
 {
     ConfigParser c_parser;
-
     if(!c_parser.ReadFile(path)) {
         std::cerr << "Cannot open file \"" << path << "\", no data points read "
                   << "for data set at energy = " << energy

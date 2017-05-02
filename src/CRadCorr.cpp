@@ -12,9 +12,10 @@ const CExpData *interp_source = nullptr;
 
 
 // constructor
-CRadCorr::CRadCorr()
+CRadCorr::CRadCorr(const std::string &path)
 {
-    // place holder
+    if(!path.empty())
+        Configure(path);
 }
 
 // destructor
@@ -557,6 +558,7 @@ void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
 
     // initialize model
     init_model_range(model_set);
+    model.SetNormalization(1.0);
 
     auto max_it = find_peak(model_set.data, born_level);
     size_t max_idx = max_it - model_set.data.begin();
@@ -591,6 +593,7 @@ void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
                 xyrad2d(model_set, true, false);
 
             CExpData::DataPoint max_model(*find_peak(model_set.data, born_level));
+            std::cout << max_model.born << ", " << max_model.rad << std::endl;
 
             model.SetNormalization(model.GetNormalization()*max_point.rad/max_model.rad);
 

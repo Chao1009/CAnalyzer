@@ -12,7 +12,7 @@
 class CRadCorr : public ConfigObject
 {
 public:
-    CRadCorr();
+    CRadCorr(const std::string &path = "");
     virtual ~CRadCorr();
 
     void Configure(const std::string &path);

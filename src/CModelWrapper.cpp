@@ -113,7 +113,7 @@ const
     MPoint interp;
 
     if(it_pair.second == model_sets.end() || it_pair.first == model_sets.end()) {
-        std::cerr << "Cannot interpolate for Q2 = " << Q2 << std::endl;
+        std::cerr << "Cannot interpolate for Q2 = " << Q2 << " GeV^2" << std::endl;
         return 0.;
     }
 
@@ -141,7 +141,8 @@ const
 
     // not found
     if(it_pair.second == points.end() || it_pair.first == points.end()) {
-        std::cerr << "Cannot interpolate for Q2 = " << Q2 << ", W = " << W << std::endl;
+        std::cerr << "Cannot interpolate for Q2 = " << Q2 << " GeV^2, "
+                  << "W = " << W << " GeV." << std::endl;
         return MPoint();
     }
 

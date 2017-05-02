@@ -95,7 +95,7 @@ public:
     inline const DataSet &GetSet(size_t i) const {return data_sets.at(i);}
     inline std::vector<DataSet> &GetSets() {return data_sets;}
     inline DataSet &GetSet(size_t i) {return data_sets.at(i);}
-    inline bool InRange(const double &E0)
+    bool InRange(const double &E0)
     const
     {
         if(data_sets.empty())

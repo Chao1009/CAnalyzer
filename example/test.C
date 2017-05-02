@@ -169,6 +169,7 @@ void model_wrapper_test(double energy, double angle, double nu_min, double nu_ma
     double Z = 2.0, A = 3.0, Q2 = 1.0, W2 = 0.5;
 
     CModelWrapper wrapper;
+    wrapper.SetRange(6000, 50000, 500, 900, 1900, 1000);
     ofstream outf("test_model.dat");
     double xs1, xs2, xs3;
     for(double nu = nu_min; nu <= nu_max; nu += 1.0)
@@ -210,5 +211,59 @@ void interp_test(double energy = 1000, double nu_beg = 10, double nu_end = 100)
     {
         cout << nu << ", " << data.GetCrossSection(energy, energy - nu) << endl;
     }
+}
+
+#include "../../sys_study/scripts/utils.C"
+void qe_compare(int energy = 2135, double scale = 1., double shift = 0.)
+{
+    // plots to show data
+    TGraph *g1 = new TGraph();
+    TGraph *g2 = new TGraph();
+    TGraph *g3 = new TGraph();
+
+    string data_file = "output/radcor_out_2mm_2135.dat";
+
+    string calc_file1 = "../../qe_calc/Hannover/s36.dat";
+    string calc_file2 = "../../qe_calc/Golak/Golak.dat";
+
+
+    fill_graph(g1, data_file, 1, 3);
+
+    // hannover is calculated at 6 and 9 degree, need to be corrected
+    vector<int> sets_9deg = {1147, 2234, 3319, 3775, 4404};
+    double h_scale = 1.;
+    if(cana::is_in(energy, sets_9deg.begin(), sets_9deg.end()))
+    {
+        h_scale = scale_mott(9.0, 9.03);
+    }
+    else
+    {
+        h_scale = scale_mott(6.0, 6.10);
+    }
+
+    fill_graph(g2, calc_file1, 1, 2, energy, h_scale*scale, shift);
+    fill_graph(g3, calc_file2, 1, 2, energy, scale, shift);
+
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,500);
+    c1->SetGrid();
+
+    double x1, x2, y1, y2;
+    get_frame_range(x1, y1, x2, y2, {g2, g3});
+    c1->DrawFrame(x1, y1, x2, y2);
+
+    // plot data
+    g1->Draw("CP");
+    g2->SetLineColor(3);
+    g2->SetLineWidth(1);
+    g2->SetMarkerStyle(8);
+    g2->SetMarkerColor(3);
+    g2->SetMarkerSize(0.7);
+    g2->Draw("CP");
+    g3->SetMarkerStyle(8);
+    g3->SetMarkerColor(2);
+    g3->SetMarkerSize(0.7);
+    g3->SetLineColor(2);
+    g3->SetLineWidth(1);
+    g3->Draw("CP");
 }
 
