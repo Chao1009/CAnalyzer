@@ -334,15 +334,11 @@ void CExpData::DataSet::ReadData(const std::string &path, const std::string &lab
     while(c_parser.ParseLine())
     {
         // check if label agrees
-        if(c_parser.NbofElements() == 5) {
+        if(!label.empty() && c_parser.NbofElements() > 4) {
             std::string plabel = c_parser.TakeFirst().String();
             if(plabel != label)
                 continue;
         }
-
-        // check format
-        if(!c_parser.CheckElements(4))
-            continue;
 
         // new data points
         double nu, cxsn, stat, syst;

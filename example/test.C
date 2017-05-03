@@ -3,6 +3,7 @@
 #include "CEstimator.h"
 #include "CExpData.h"
 #include "CRadCorr.h"
+#include "CNeuralNetwork.h"
 
 using namespace cana;
 
@@ -221,7 +222,7 @@ void qe_compare(int energy = 2135, double scale = 1., double shift = 0.)
     TGraph *g2 = new TGraph();
     TGraph *g3 = new TGraph();
 
-    string data_file = "output/radcor_out_2mm_2135.dat";
+    string data_file = "output/radcor_out.dat";
 
     string calc_file1 = "../../qe_calc/Hannover/s36.dat";
     string calc_file2 = "../../qe_calc/Golak/Golak.dat";

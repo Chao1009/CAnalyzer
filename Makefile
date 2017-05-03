@@ -50,6 +50,9 @@ CXX_SOURCES   = canalib \
                 ConfigParser \
                 ConfigValue \
                 ConfigObject \
+                CNeuron \
+                CNeuronLayer \
+                CNeuralNetwork \
                 CExpData \
                 CRadCorr \
                 CAnalyzer \

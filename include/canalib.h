@@ -26,7 +26,7 @@ namespace cana
     double spence_tr(const double &z, const double &res, const int &nmax);
 
     template<typename T>
-    T clamp(const T &val, const T &min, const T &max)
+    inline T clamp(const T &val, const T &min, const T &max)
     {
         if(val < min) return min;
         if(val > max) return max;
