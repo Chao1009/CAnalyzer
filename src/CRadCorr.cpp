@@ -69,7 +69,8 @@ void CRadCorr::Initialize(const CExpData &exp_data, bool radiate)
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    target_M = target_A * cana::amu;
+    // it is for inelastic part, it should be electron-nucleon reactions
+    target_M = cana::proton_mass; //target_A * cana::amu;
     sin2 = std::pow(sin(theta/2.), 2);
     cos2 = std::pow(cos(theta/2.), 2);
 

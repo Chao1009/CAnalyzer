@@ -3,9 +3,8 @@
 #include "CEstimator.h"
 #include "CExpData.h"
 #include "CRadCorr.h"
+#include "CElasTails.h"
 #include "CNeuralNetwork.h"
-
-using namespace cana;
 
 void fit_test()
 {
@@ -121,7 +120,7 @@ void cana_test()
          << endl;
 }
 
-double quad(const double &x)
+double quad(double x)
 {
     return x*x;
 }
@@ -163,6 +162,8 @@ void function_test()
 
     cout << cana::simpson(0, 10, &quad, 0.01, 1000) << endl;
     cout << cana::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
+    auto lmd_quad = [](double x) {return x*x;};
+    cout << cana::simpson(0, 10, 1000, lmd_quad) << endl;
 }
 
 void model_wrapper_test(double energy, double angle, double nu_min, double nu_max)
@@ -215,20 +216,61 @@ void interp_test(double energy = 1000, double nu_beg = 10, double nu_end = 100)
 }
 
 #include "../../sys_study/scripts/utils.C"
+
+void fill_graph_radcor(TGraph *gr,
+                       const string &rad_file,
+                       int nu_col1,
+                       int xs_col1,
+                       int born_col,
+                       const string &data_file,
+                       int nu_col2,
+                       int xs_col2)
+{
+    CAnalyzer cana;
+    cana.ReadData(rad_file);
+    auto nu1 = cana.GetColumn(nu_col1);
+    auto xs1 = cana.GetColumn(xs_col1);
+    auto born = cana.GetColumn(born_col);
+
+    cana.ReadData(data_file);
+    auto nu2 = cana.GetColumn(nu_col2);
+    auto xs2 = cana.GetColumn(xs_col2);
+
+    for(size_t i = 0; i < nu2.size(); ++i)
+    {
+        for(size_t j = 0; j < nu1.size(); ++j)
+        {
+            if(nu2.at(i) == nu1.at(j)) {
+                double cxsn = born.at(j)/xs1.at(j)*xs2.at(i);
+                gr->SetPoint(gr->GetN(), nu2.at(i), cxsn);
+            }
+        }
+    }
+}
+
 void qe_compare(int energy = 2135, double scale = 1., double shift = 0.)
 {
     // plots to show data
-    TGraph *g1 = new TGraph();
+    TGraph *g1a = new TGraph();
+    TGraph *g1b = new TGraph();
+    TGraph *g1c = new TGraph();
     TGraph *g2 = new TGraph();
     TGraph *g3 = new TGraph();
 
-    string data_file = "output/radcor_out.dat";
+    string rad_file1 = "output/radcor_" + to_string(energy) + "_0mm.dat";
+    string rad_file2 = "output/radcor_" + to_string(energy) + "_2mm.dat";
+    string rad_file3 = "output/radcor_" + to_string(energy) + "_4mm.dat";
+    string data_file1 = "data/" + to_string(energy) + "_tailsub_0mm.dat";
+    string data_file2 = "data/" + to_string(energy) + "_tailsub_2mm.dat";
+    string data_file3 = "data/" + to_string(energy) + "_tailsub_4mm.dat";
 
     string calc_file1 = "../../qe_calc/Hannover/s36.dat";
     string calc_file2 = "../../qe_calc/Golak/Golak.dat";
 
 
-    fill_graph(g1, data_file, 1, 3);
+    fill_graph_radcor(g1a, rad_file1, 1, 2, 3, data_file1, 0, 1);
+    fill_graph_radcor(g1b, rad_file2, 1, 2, 3, data_file2, 0, 1);
+    fill_graph_radcor(g1c, rad_file3, 1, 2, 3, data_file3, 0, 1);
 
     // hannover is calculated at 6 and 9 degree, need to be corrected
     vector<int> sets_9deg = {1147, 2234, 3319, 3775, 4404};
@@ -253,18 +295,144 @@ void qe_compare(int energy = 2135, double scale = 1., double shift = 0.)
     c1->DrawFrame(x1, y1, x2, y2);
 
     // plot data
-    g1->Draw("CP");
-    g2->SetLineColor(3);
+    g1a->SetMarkerStyle(20);
+    g1a->SetMarkerSize(0.7);
+    g1a->SetMarkerColor(4);
+    g1b->SetMarkerStyle(21);
+    g1b->SetMarkerSize(0.7);
+    g1b->SetMarkerColor(1);
+    g1c->SetMarkerStyle(22);
+    g1c->SetMarkerSize(0.7);
+    g1c->SetMarkerColor(2);
+    g1a->Draw("P");
+    g1b->Draw("P");
+    g1c->Draw("P");
+    g2->SetLineColor(8);
     g2->SetLineWidth(1);
-    g2->SetMarkerStyle(8);
-    g2->SetMarkerColor(3);
-    g2->SetMarkerSize(0.7);
     g2->Draw("CP");
-    g3->SetMarkerStyle(8);
-    g3->SetMarkerColor(2);
-    g3->SetMarkerSize(0.7);
-    g3->SetLineColor(2);
+    g3->SetLineColor(9);
     g3->SetLineWidth(1);
     g3->Draw("CP");
+}
+
+void tail_compare(int energy = 1147)
+{
+    // plots to show data
+    TGraphErrors *g1 = new TGraphErrors();
+    TGraph *g2a = new TGraph();
+    TGraph *g2b = new TGraph();
+    TGraph *g2c = new TGraph();
+
+    string data_file = "../../data/cxsn_raw/He3_bc_cxsn_" + to_string(energy) + "_n2sub.txt";
+
+    // black
+    string tail_file1 = "output/tail_" + to_string(energy) + "_4mm_prec.dat";
+    // red
+    string tail_file2 = "output/tail_" + to_string(energy) + "_4mm_polsig.dat";
+    // blue
+    string tail_file3 = "output/tail_" + to_string(energy) + "_4mm_xy.dat";
+
+    CAnalyzer c_ana;
+    c_ana.ReadData("../../sys_study/tail_shifts.txt");
+    auto energies = c_ana.GetColumn(0);
+    auto shifts = c_ana.GetColumn(1);
+    double shift = 0.;
+    for(size_t i = 0; i < shifts.size(); ++i)
+    {
+        if(int(energies.at(i) + 0.5) == energy)
+            shift = shifts.at(i);
+    }
+
+    fill_graph_error(g1, data_file, 2, 3, 4);
+    fill_graph(g2a, tail_file1, 1, 2, 1.0, shift);
+    fill_graph(g2b, tail_file2, 1, 2, 1.0, shift);
+    fill_graph(g2c, tail_file3, 1, 2, 1.0, shift);
+
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,500);
+    c1->SetGrid();
+
+    double x1, x2, y1, y2;
+    get_frame_range(x1, y1, x2, y2, {g1});
+    c1->DrawFrame(x1, y1, x2, y2);
+
+    // plot data
+    g2a->SetLineColor(1);
+    g2b->SetLineColor(2);
+    g2c->SetLineColor(4);
+    g2a->Draw("C");
+    g2b->Draw("C");
+    g2c->Draw("C");
+    g1->SetLineColor(9);
+    g1->SetMarkerColor(9);
+    g1->SetMarkerStyle(8);
+    g1->SetMarkerSize(0.7);
+    g1->Draw("P");
+}
+
+void subtail_compare(int energy = 2135)
+{
+    // plots to show data
+    TGraph *g1a = new TGraph();
+    TGraph *g1b = new TGraph();
+    TGraph *g1c = new TGraph();
+
+    string cxsn_file1 = "data/" + to_string(energy) + "_tailsub_0mm.dat";
+    string cxsn_file2 = "data/" + to_string(energy) + "_tailsub_2mm.dat";
+    string cxsn_file3 = "data/" + to_string(energy) + "_tailsub_4mm.dat";
+
+    fill_graph(g1a, cxsn_file1, 0, 1);
+    fill_graph(g1b, cxsn_file2, 0, 1);
+    fill_graph(g1c, cxsn_file3, 0, 1);
+
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,500);
+    c1->SetGrid();
+
+    double x1, x2, y1, y2;
+    get_frame_range(x1, y1, x2, y2, {g1a, g1b, g1c});
+    c1->DrawFrame(x1, y1, x2, y2);
+
+    // plot data
+    g1a->SetMarkerStyle(20);
+    g1a->SetMarkerSize(0.7);
+    g1a->SetMarkerColor(4);
+    g1b->SetMarkerStyle(21);
+    g1b->SetMarkerSize(0.7);
+    g1b->SetMarkerColor(1);
+    g1c->SetMarkerStyle(22);
+    g1c->SetMarkerSize(0.7);
+    g1c->SetMarkerColor(2);
+    g1a->Draw("P");
+    g1b->Draw("P");
+    g1c->Draw("P");
+}
+
+void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, double nu_end = 700)
+{
+    TGraph *g1 = new TGraph();
+    TGraph *g2 = new TGraph();
+
+    CHe3Elas he3_model;
+    he3_model.Configure("configs/elas_tail.conf");
+
+    he3_model.SetConfigValue("Use X. Yan's Formula", true);
+    he3_model.Configure();
+    for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
+    {
+        g1->SetPoint(g1->GetN(), nu, 1000.*he3_model.GetRadXS(energy, energy - nu, angle*cana::deg2rad, 0., 0.));
+    }
+
+    he3_model.SetConfigValue("Use X. Yan's Formula", false);
+    he3_model.Configure();
+    for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
+    {
+        g2->SetPoint(g2->GetN(), nu, 1000.*he3_model.GetRadXS(energy, energy - nu, angle*cana::deg2rad, 0., 0.));
+    }
+
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,500);
+    c1->SetGrid();
+
+    g1->SetLineColor(2);
+    g1->Draw("AC");
+    g2->Draw("C");
 }
 

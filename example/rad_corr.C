@@ -3,7 +3,7 @@
 
 using namespace std;
 
-void rad_corr()
+void rad_corr(const string &data_conf = "configs/data_sets_9deg.conf")
 {
     CRadCorr rad_cor;
     rad_cor.Configure("configs/rad_corr.conf");
@@ -33,7 +33,7 @@ void rad_corr()
         cout << "OFF" << endl;
 
     CExpData data;
-    data.ReadConfigFile("configs/data_sets_6deg.conf");
+    data.ReadConfigFile(data_conf);
 
 //    rad_cor.Radiate();
     rad_cor.RadiativeCorrection(data);
