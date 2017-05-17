@@ -410,29 +410,61 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
 {
     TGraph *g1 = new TGraph();
     TGraph *g2 = new TGraph();
+    TGraph *g3 = new TGraph();
 
-    CHe3Elas he3_model;
-    he3_model.Configure("configs/elas_tail.conf");
+    CHe3Elas he3_MT("configs/elas_tail.conf");
+    CHe3Elas he3_XY("configs/elas_tail.conf");
+    CHe3Elas he3_BS("configs/elas_tail.conf");
+    he3_MT.SetConfigValue("Radiative Approach", ConfigValue("MT Exact"));
+    he3_MT.Configure();
+    he3_XY.SetConfigValue("Radiative Approach", ConfigValue("MT Approx"));
+    he3_XY.Configure();
+    he3_BS.SetConfigValue("Radiative Approach", ConfigValue("BS"));
+    he3_BS.Configure();
 
-    he3_model.SetConfigValue("Use X. Yan's Formula", true);
-    he3_model.Configure();
+    TGraph *g1v2 = new TGraph();
+    TGraph *g1v3 = new TGraph();
+
+    double rlb = 2.073e-3;
+    double rla = 4.492e-2;
+
     for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
     {
-        g1->SetPoint(g1->GetN(), nu, 1000.*he3_model.GetRadXS(energy, energy - nu, angle*cana::deg2rad, 0., 0.));
+        double xs_MT = 1000.*he3_MT.GetRadXS(energy, energy - nu, angle*cana::deg2rad, rlb, rla);
+        double xs_XY = 1000.*he3_XY.GetRadXS(energy, energy - nu, angle*cana::deg2rad, rlb, rla);
+        double xs_BS = 1000.*he3_BS.GetRadXS(energy, energy - nu, angle*cana::deg2rad, rlb, rla);
+        g1->SetPoint(g1->GetN(), nu, xs_MT);
+        g2->SetPoint(g2->GetN(), nu, xs_XY);
+        g1v2->SetPoint(g1v2->GetN(), nu, (xs_XY/xs_MT - 1.)*100.);
+        g3->SetPoint(g3->GetN(), nu, xs_BS);
+        g1v3->SetPoint(g1v2->GetN(), nu, (xs_BS/xs_MT - 1.)*100.);
     }
 
-    he3_model.SetConfigValue("Use X. Yan's Formula", false);
-    he3_model.Configure();
-    for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
-    {
-        g2->SetPoint(g2->GetN(), nu, 1000.*he3_model.GetRadXS(energy, energy - nu, angle*cana::deg2rad, 0., 0.));
-    }
+    // blue
+    g2->SetLineColor(4);
+    g1v2->SetLineColor(4);
+    // red
+    g3->SetLineColor(2);
+    g1v3->SetLineColor(2);
 
-    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,500);
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,1000);
     c1->SetGrid();
-
-    g1->SetLineColor(2);
+    c1->Divide(1, 2);
+    c1->cd(1);
     g1->Draw("AC");
     g2->Draw("C");
+    g3->Draw("C");
+    c1->cd(2);
+    c1->DrawFrame(nu_beg, -10., nu_end, 10.);
+    g1v3->Draw("AC");
+    g1v2->Draw("C");
+}
+
+void energy_loss(double Es = 1147)
+{
+    double gamma = Es/cana::ele_mass;
+    double beta = 1. - 1./gamma/gamma;
+    E_max = 2*cana::ele_mass*beta*beta*gamma*gamma/(2. + 2.*gamma);
+    cout << E_max << endl;
 }
 

@@ -38,7 +38,7 @@ inline double __ice_coll(double thickness)
     // Z/A = 0.55509 mol/g
     // a = 0.15353747 MeV*(cm^2/mol)
     // rho = 0.918 g/cm^3
-    return 0.55509*0.15353747*0.918*thickness/10.;
+    return 0.55509*0.15353747*0.918*(thickness/10.);
 
 }
 

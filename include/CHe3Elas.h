@@ -7,7 +7,14 @@
 class CHe3Elas : public ConfigObject
 {
 public:
-    CHe3Elas();
+    enum RadApproach
+    {
+        Mo_Tsai_Approx,
+        Mo_Tsai_Exact,
+        Bardin_Shumeiko,
+    };
+
+    CHe3Elas(const std::string &path = "");
     virtual ~CHe3Elas();
 
     void Configure(const std::string &path = "");
@@ -38,6 +45,7 @@ private:
     double xi_before, xi_after;
     int n_sim, pol_angle;
     bool user_xi, polarized, xy_method;
+    RadApproach approach;
 };
 
 #endif

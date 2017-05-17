@@ -28,12 +28,10 @@ const double _gaus_ampl_m[] = {0.059785, 0.138368, 0.281326, 0.000037,
 
 
 // constructor
-CHe3Elas::CHe3Elas()
+CHe3Elas::CHe3Elas(const std::string &path)
 {
-    // B(z) Eq. A45 in STEIN
-    Bz = 1./9.*(_target_Z + 1.)/(_target_Z + __eta(_target_Z));
-    Bz /= log(183.*std::pow(_target_Z, -1./3.));
-    Bz = 4./3.*(1. + Bz);
+    if(path.size())
+        Configure(path);
 }
 
 // destructor
@@ -48,7 +46,6 @@ void CHe3Elas::Configure(const std::string &path)
     if(!path.empty())
         ConfigObject::Configure(path);
 
-    xy_method = getDefConfig<bool>("Use X. Yan's Formula", true);
     delta1 = getDefConfig<double>("Delta1", 0.5);
     delta2 = getDefConfig<double>("Delta2", 0.5);
     n_sim = getDefConfig<int>("Min Number of Simpson Bins", 10000);
@@ -61,8 +58,13 @@ void CHe3Elas::Configure(const std::string &path)
               / (_target_Z + __eta(_target_Z))
               / log(183*std::pow(_target_Z, -1./3.));
 
+    // B(z) Eq. A45 in STEIN
+    Bz = 1./9.*(_target_Z + 1.)/(_target_Z + __eta(_target_Z));
+    Bz /= log(183.*std::pow(_target_Z, -1./3.));
+    Bz = 4./3.*(1. + Bz);
 
-    // need revisit this part, now keep the Stein formula for it
+
+    // TODO need revisit this part, now keep the Stein formula for it
     /*
     user_xi = getDefConfig<bool>("User Defined XI", true);
     xi_before = getDefConfig<double>("XI Before", 0.007417);
@@ -70,6 +72,16 @@ void CHe3Elas::Configure(const std::string &path)
     */
     user_xi = false;
     rtails_init(user_xi, polarized, pol_angle);
+
+    std::string app_str = GetConfig<std::string>("Radiative Approach");
+    if(app_str.empty() ||
+       ConfigParser::case_ins_equal(app_str, "MT Exact")) {
+        approach = Mo_Tsai_Exact;
+    } else if(ConfigParser::case_ins_equal(app_str, "MT Approx")) {
+        approach = Mo_Tsai_Approx;
+    } else if(ConfigParser::case_ins_equal(app_str, "BS")) {
+        approach = Bardin_Shumeiko;
+    }
 }
 
 // initialize
@@ -142,21 +154,26 @@ double CHe3Elas::GetRadXS(const double &Es, const double &Ep, const double &thet
                           const double &radl_in, const double &radl_out,
                           const double &xi_in, const double &xi_out)
 {
-    if(xy_method) {
-        BTB = radl_in*Bz, BTA = radl_out*Bz;
-        if(!user_xi) {
-            xi_before = radl_in*xi_factor;
-            xi_after = radl_out*xi_factor;
-        } else {
-            xi_before = xi_in;
-            xi_after = xi_out;
-        }
-        return xyradel(Es, Ep, theta);
+    // update related variables
+    BTB = radl_in*Bz, BTA = radl_out*Bz;
+    if(user_xi) {
+        xi_before = xi_in;
+        xi_after = xi_out;
     } else {
-        double sigrad;
-        rtails_set_radl(radl_in, radl_out, xi_in, xi_out);
-        rtails_rad_cxsn(Es, Ep, theta, &sigrad);
-        return sigrad;
+        xi_before = radl_in*xi_factor;
+        xi_after = radl_out*xi_factor;
+    }
+    rtails_set_radl(radl_in, radl_out, xi_before, xi_after);
+
+    switch(approach)
+    {
+    case Bardin_Shumeiko:
+        return rtails_rad_cxsn(Es, Ep, theta, false);
+    case Mo_Tsai_Approx:
+        return xyradel(Es, Ep, theta);
+    case Mo_Tsai_Exact:
+    default:
+        return rtails_rad_cxsn(Es, Ep, theta, true);
     }
 }
 

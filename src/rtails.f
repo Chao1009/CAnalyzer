@@ -311,14 +311,14 @@
 ! A interface to C/C++, generate the cross section with radiation effects
 ! It accepts Es Ep in MeV, theta in rad, and radiation length before and after
 ! It returns sigrad in ub/MeV/sr
-      SUBROUTINE RTAILS_RAD_CXSN(es, ep, th, sigrad)
+      REAL(C_DOUBLE) FUNCTION RTAILS_RAD_CXSN(es, ep, th, unpol_MT)
      &BIND(C, name = "rtails_rad_cxsn")
 !-----------------------------------------------------------------------
       USE, INTRINSIC :: ISO_C_BINDING
 
       IMPLICIT REAL*8 (A-H, O-Z)
       REAL(C_DOUBLE), INTENT(IN), VALUE :: es, ep, th
-      REAL(C_DOUBLE), INTENT(OUT) :: sigrad
+      LOGICAL(C_BOOL), INTENT(IN), VALUE :: unpol_MT
       LOGICAL INCREM,POLARIZED
       INTEGER IPOL
       EXTERNAL XSECT
@@ -345,17 +345,29 @@
           CALL POLSIG_EL(EINC, EFIN, THETA, IPOL, SIGMA_BORN, SIGMA_RAD)
           RCINT = SIGMA_RAD
       ELSE
-!          CALL POLSIG_EL(EINC, EFIN, THETA, 0, SIGMA_BORN, SIGMA_RAD)
-!          RCINT = SIGMA_RAD/1D3
-          CALL XSECTP(EINC, EFIN, THETA)
-          INCREM = .TRUE.
-          RCINT = (ALPHA**3/(4.D0*PI**2))*(EFIN/(EINC*AMT*1.D3))
-     &          * SIMPSN(XSECT, -0.999999999D0, 0.999999999D0, 0.00001D0)
-     &          * FSOFT * HCSQ * 1.0D30
+          IF(UNPOL_MT) THEN
+              ! internal part
+              TWB = 0D0
+              TWA = 0D0
+              USER_XIA = 0D0
+              USER_XIB = 0D0
+              ! get fsoft
+              CALL EXTERNL(XEXTB, XEXTA, FSOFT, XINT)
+
+              CALL XSECTP(EINC, EFIN, THETA)
+              INCREM = .TRUE.
+              RCINT = (ALPHA**3/(4.D0*PI**2))*(EFIN/(EINC*AMT*1.D3))
+     &                * SIMPSN(XSECT, -0.999999999D0, 0.999999999D0, 0.00001D0)
+     &                * HCSQ * FSOFT * 1.0D30
+          ELSE
+              CALL POLSIG_EL(EINC, EFIN, THETA, 0, SIGMA_BORN, SIGMA_RAD)
+              RCINT = SIGMA_RAD/1D3
+          ENDIF
       ENDIF
 
-      sigrad = RCEXT + RCINT
-      END SUBROUTINE RTAILS_RAD_CXSN
+!      PRINT *, EINC, EFIN, RCINT + RCEXT, UNPOL_MT
+      RTAILS_RAD_CXSN = RCEXT + RCINT
+      END FUNCTION RTAILS_RAD_CXSN
 
 
 

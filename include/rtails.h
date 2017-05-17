@@ -21,10 +21,9 @@ extern "C"
     // es : initial energy in MeV
     // ep : final energy in MeV
     // ang : scattering angle in degree
-    // rlin : radiation length before
-    // rlout : radiation length after
-    // sigrad : OUTPUT, cross section in ub/MeV/sr
-    void rtails_rad_cxsn(double es, double ep, double ang, double *sigrad);
+    // unpol_MT : using MT approach or BS approach on unpolarized internal radiative effects
+    // output: cross section in ub/MeV/sr
+    double rtails_rad_cxsn(double es, double ep, double ang, bool unpol_MT = true);
 }
 
 #endif
