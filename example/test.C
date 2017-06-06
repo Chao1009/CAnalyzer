@@ -411,6 +411,7 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
     TGraph *g1 = new TGraph();
     TGraph *g2 = new TGraph();
     TGraph *g3 = new TGraph();
+    TGraph *g4 = new TGraph();
 
     CHe3Elas he3_MT("configs/elas_tail.conf");
     CHe3Elas he3_XY("configs/elas_tail.conf");
@@ -427,6 +428,9 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
 
     double rlb = 2.073e-3;
     double rla = 4.492e-2;
+
+    string tail_file = "energy_loss_BS.dat";
+    fill_graph(g4, tail_file, 0, 1, 1.0, 0.0);
 
     for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
     {
@@ -454,17 +458,235 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
     g1->Draw("AC");
     g2->Draw("C");
     g3->Draw("C");
+    g4->SetMarkerStyle(20);
+    g4->Draw("P");
     c1->cd(2);
     c1->DrawFrame(nu_beg, -10., nu_end, 10.);
     g1v3->Draw("AC");
     g1v2->Draw("C");
 }
 
-void energy_loss(double Es = 1147)
+void landau_test()
 {
-    double gamma = Es/cana::ele_mass;
-    double beta = 1. - 1./gamma/gamma;
-    E_max = 2*cana::ele_mass*beta*beta*gamma*gamma/(2. + 2.*gamma);
-    cout << E_max << endl;
+    TGraph *g1 = new TGraph();
+    TGraph *g2 = new TGraph();
+    for(double x = -5; x < 15; x += 0.1)
+    {
+        g1->SetPoint(g1->GetN(), x, cana::landau_straggle(x, 1, 0, false));
+        g2->SetPoint(g2->GetN(), x, ROOT::Math::landau_pdf(x));
+    }
+    TCanvas *c1 = new TCanvas("Landau dist", "Landau dist", 200, 10, 1200, 500);
+    g1->SetMarkerStyle(21);
+    g1->Draw("AP");
+
+    g2->SetMarkerStyle(22);
+    g2->SetMarkerColor(2);
+    g2->Draw("P");
 }
 
+#define N_LAMDA 1000
+#define N_XS 1000
+struct XSDist {double Ep, cdf;};
+struct LamdaDist {double lamda, cdf; std::vector<XSDist> xs_dist;};
+void calc_xs_dist(CHe3Elas &model, XSDist *dist, int Npoints, double Es, double angle)
+{
+    //bool MT_method = false;
+    //rtails_init(false, false, 180);
+    //rtails_set_radl(0., 0., 0., 0.);
+    double theta = angle*cana::deg2rad;
+    double elas_Ep = Es/(1. + 2.*Es*std::pow(sin(theta/2.), 2)/(3.0149322473*cana::amu));
+    double Epmax = elas_Ep - 1.;
+    double Epmin = 0.20*elas_Ep;
+    double step = (Epmax - Epmin)/(double)(Npoints - 1);
+    dist[0].Ep = Epmin;
+    dist[0].cdf = 0.;
+    double prev_xs = model.GetRadXS(Es, Epmin, theta, 0., 0.);
+    //double prev_xs = rtails_rad_cxsn(Es, Epmin, theta, MT_method);
+
+    for(int i = 1; i < Npoints; ++i)
+    {
+        double Ep = Epmin + i*step;
+        //double xs = rtails_rad_cxsn(Es, Ep, theta, MT_method);
+        double xs = model.GetRadXS(Es, Ep, theta, 0., 0.);
+        dist[i].Ep = Ep;
+        dist[i].cdf = step*(xs + prev_xs)/2. + dist[i-1].cdf;
+        prev_xs = xs;
+    }
+}
+
+void energy_loss(double Es = 1147, double angle = 9.03)
+{
+    int nevents = 500000000;
+    double xi1 = 7.417e-3;
+    double xi2 = 0.1069;
+    double avg_loss1 = 0.23;
+    double avg_loss2 = 3.086;
+    CHe3Elas model("configs/elas_tail.conf");
+//    model.SetConfigValue("Radiative Approach", ConfigValue("BS"));
+//    model.SetConfigValue("Radiative Approach", ConfigValue("MT Exact"));
+//    model.SetConfigValue("Radiative Approach", ConfigValue("MT Approx"));
+    model.Configure();
+
+    double m = cana::ele_mass;
+    double gamma = Es/m;
+    double beta = sqrt(1. - 1./gamma/gamma);
+    double Emax = m*beta*beta*gamma*gamma/(1. + gamma);
+    double lamda_avg1 = cana::euler - 1. - beta*beta - log(xi1/Emax);
+    double lamda_avg2 = cana::euler - 1. - beta*beta - log(xi2/Emax);
+    double lamda_max = 0.60715 + 1.1934*lamda_avg1 + (0.67794 + 0.052382*lamda_avg1)*exp(0.94753 + 0.74442*lamda_avg1);
+    double lamda_min = lamda_avg1 - avg_loss1/xi1;
+
+    double step = (lamda_max - lamda_min)/(double)N_LAMDA;
+    std::vector<LamdaDist> lamda_dist(N_LAMDA + 1);
+    LamdaDist fp;
+    fp.lamda = lamda_min;
+    fp.cdf = 0.;
+    fp.xs_dist.resize(N_XS + 1);
+    calc_xs_dist(model, &fp.xs_dist.at(0), N_XS + 1, Es, angle);
+    lamda_dist.at(0) = fp;
+    double luminosity = (double)nevents/fp.xs_dist.back().cdf;
+
+    double plandau = cana::landau_fit(fp.lamda);
+
+    for(int i = 1; i <= N_LAMDA; ++i)
+    {
+        double lamda = lamda_min + i*step;
+        double landau = cana::landau_fit(lamda);
+        LamdaDist &curr = lamda_dist.at(i);
+        LamdaDist &prev = lamda_dist.at(i - 1);
+        curr.lamda = lamda;
+        curr.xs_dist.resize(N_XS + 1);
+        double Es1 = Es - (lamda - lamda_avg1)*xi1 - avg_loss1;
+        calc_xs_dist(model, &curr.xs_dist.at(0), N_XS + 1, Es1, angle);
+        curr.cdf = step*(landau + plandau)/2. + prev.cdf;
+        plandau = landau;
+    }
+
+    random_device rd;
+    mt19937 rng{rd()};
+    uniform_real_distribution<double> uni_dist(0., 1.);
+    auto comp = [](LamdaDist p, double val) {return p.cdf - val;};
+    auto comp2 = [](XSDist p, double val) {return p.cdf - val;};
+
+    int counts[700];
+    for(int i = 0; i < 700; ++i)
+    {
+        counts[i] = 0;
+    }
+
+    for(int i = 0; i < nevents; ++i)
+    {
+        double rnd = uni_dist(rng)*lamda_dist.back().cdf;
+        auto itv = cana::binary_search_interval(lamda_dist.begin(), lamda_dist.end(), rnd, comp);
+        double lamda = cana::linear_interp(itv.first->cdf, itv.first->lamda,
+                                           itv.second->cdf, itv.second->lamda,
+                                           rnd);
+        double e_loss1 = (lamda - lamda_avg1)*xi1 + avg_loss1;
+        double rn = uni_dist(rng);
+        double rnd1 = rn*itv.first->xs_dist.back().cdf;
+        double rnd2 = rn*itv.second->xs_dist.back().cdf;
+        auto itv1 = cana::binary_search_interval(itv.first->xs_dist.begin(),
+                                                 itv.first->xs_dist.end(),
+                                                 rnd1,
+                                                 comp2);
+        auto itv2 = cana::binary_search_interval(itv.second->xs_dist.begin(),
+                                                 itv.second->xs_dist.end(),
+                                                 rnd2,
+                                                 comp2);
+        double Ep1 = cana::linear_interp(itv1.first->cdf, itv1.first->Ep,
+                                         itv1.second->cdf, itv1.second->Ep,
+                                         rnd1);
+        double Ep2 = cana::linear_interp(itv2.first->cdf, itv2.first->Ep,
+                                         itv2.second->cdf, itv2.second->Ep,
+                                         rnd2);
+        double Ep = cana::linear_interp(itv.first->cdf, Ep1,
+                                        itv.second->cdf, Ep2,
+                                        rnd);
+
+        double rnd3 = uni_dist(rng)*lamda_dist.back().cdf;
+        auto itvp = cana::binary_search_interval(lamda_dist.begin(), lamda_dist.end(), rnd3, comp);
+        double lamdap = cana::linear_interp(itvp.first->cdf, itvp.first->lamda,
+                                            itvp.second->cdf, itvp.second->lamda,
+                                            rnd3);
+        double e_loss2 = (lamdap - lamda_avg2)*xi2 + avg_loss2;
+        int Epp = int(Es - (Ep - e_loss2) + 0.5);
+        if(Epp < 700 && Epp >= 0)
+        {
+            counts[Epp]++;
+        }
+    }
+
+    std::ofstream outf("energy_loss.dat");
+    for(int i = 0; i < 700; ++i)
+    {
+        outf << std::setw(8) << i
+             << std::setw(20) << ((double)counts[i]/luminosity)*1e3
+             << std::endl;
+    }
+    outf.close();
+}
+
+void show_energy_loss()
+{
+    ConfigParser c_parser;
+    c_parser.ReadFile("energy_loss_MT.dat");
+    TGraph *gr1 = new TGraph();
+    TGraph *gr2 = new TGraph();
+    TGraph *gr3 = new TGraph();
+    TGraph *gr2b = new TGraph();
+    TGraph *gr3b = new TGraph();
+
+    double nu, val;
+    while(c_parser.ParseLine())
+    {
+        c_parser >> nu >> val;
+        gr1->SetPoint(gr1->GetN(), nu, val);
+    }
+
+    c_parser.ReadFile("energy_loss_BS.dat");
+
+    while(c_parser.ParseLine())
+    {
+        c_parser >> nu >> val;
+        gr2->SetPoint(gr2->GetN(), nu, val);
+    }
+
+    c_parser.ReadFile("energy_loss_XY.dat");
+
+    while(c_parser.ParseLine())
+    {
+        c_parser >> nu >> val;
+        gr3->SetPoint(gr3->GetN(), nu, val);
+    }
+
+    for(int i = 0; i < gr1->GetN(); ++i)
+    {
+        gr2b->SetPoint(i, gr2->GetX()[i], (gr2->GetY()[i] - gr1->GetY()[i])/gr1->GetY()[i]*100.);
+        gr3b->SetPoint(i, gr3->GetX()[i], (gr3->GetY()[i] - gr1->GetY()[i])/gr1->GetY()[i]*100.);
+    }
+
+    TCanvas *c1 = new TCanvas("unpol tail","unpol tail",200,10,700,1000);
+    c1->SetGrid();
+    c1->Divide(1, 2);
+
+    gr1->SetMarkerStyle(20);
+    gr2->SetMarkerStyle(21);
+    gr2->SetMarkerColor(2);
+    gr2b->SetMarkerStyle(21);
+    gr2b->SetMarkerColor(2);
+    gr3->SetMarkerStyle(22);
+    gr3->SetMarkerColor(4);
+    gr3b->SetMarkerStyle(22);
+    gr3b->SetMarkerColor(4);
+
+
+    c1->cd(1);
+    gr1->Draw("AP");
+    gr2->Draw("P");
+    gr3->Draw("P");
+
+    c1->cd(2);
+    gr2b->Draw("AP");
+    gr3b->Draw("P");
+    gr2b->GetYaxis()->SetRangeUser(-10, 10);
+}
