@@ -66,6 +66,7 @@ public:
         void ReadConfig(const std::string &conf_str);
         void ReadData(const std::string &path, const std::string &label);
         double Interp(const double &v) const;
+        void CopySettings(const DataSet &ref);
 
         bool operator <(const double &val) const {return energy < val;}
         bool operator >(const double &val) const {return energy > val;}
@@ -83,7 +84,7 @@ public:
 
     double GetCrossSection(const double &E0, const double &Eb) const;
     void DataUpdate();
-    void SaveResult(const std::string &path, bool save_model = false) const;
+    void SaveResult(const std::string &path, bool save_model = true) const;
 
     inline const Settings &GetSettings() const {return settings;}
     inline double Angle() const {return settings.angle;}

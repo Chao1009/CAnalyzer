@@ -24,7 +24,7 @@ public:
                     const double &radl_in, const double &radl_out,
                     const double &xi_in = 0., const double &xi_out = 0.);
     static void GetEMFFs(const double &Q2, double &GE, double &GM);
-    static double GetBornXS(const double &Es, const double &angle);
+    static double GetBornXS(const double &Es, const double &theta);
 
 private:
     double xyradel(const double &Es, const double &Ep, const double &theta);

@@ -406,7 +406,7 @@ void subtail_compare(int energy = 2135)
     g1c->Draw("P");
 }
 
-void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, double nu_end = 700)
+void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 5, double nu_end = 700)
 {
     TGraph *g1 = new TGraph();
     TGraph *g2 = new TGraph();
@@ -431,6 +431,7 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
 
     string tail_file = "energy_loss_BS.dat";
     fill_graph(g4, tail_file, 0, 1, 1.0, 0.0);
+    ofstream outf("elas_test.txt");
 
     for(double nu = nu_beg; nu <= nu_end; nu += 1.0)
     {
@@ -442,6 +443,12 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
         g1v2->SetPoint(g1v2->GetN(), nu, (xs_XY/xs_MT - 1.)*100.);
         g3->SetPoint(g3->GetN(), nu, xs_BS);
         g1v3->SetPoint(g1v2->GetN(), nu, (xs_BS/xs_MT - 1.)*100.);
+        outf << setw(8) << energy
+             << setw(8) << nu
+             << setw(15) << xs_MT
+             << setw(15) << xs_XY
+             << setw(15) << xs_BS
+             << endl;
     }
 
     // blue
@@ -458,12 +465,14 @@ void elas_test(double energy = 1147, double angle = 9.03, double nu_beg = 10, do
     g1->Draw("AC");
     g2->Draw("C");
     g3->Draw("C");
-    g4->SetMarkerStyle(20);
-    g4->Draw("P");
     c1->cd(2);
     c1->DrawFrame(nu_beg, -10., nu_end, 10.);
     g1v3->Draw("AC");
     g1v2->Draw("C");
+    /*
+    g4->SetMarkerStyle(20);
+    g4->Draw("P");
+    */
 }
 
 void landau_test()
@@ -495,7 +504,7 @@ void calc_xs_dist(CHe3Elas &model, XSDist *dist, int Npoints, double Es, double 
     //rtails_set_radl(0., 0., 0., 0.);
     double theta = angle*cana::deg2rad;
     double elas_Ep = Es/(1. + 2.*Es*std::pow(sin(theta/2.), 2)/(3.0149322473*cana::amu));
-    double Epmax = elas_Ep - 1.;
+    double Epmax = elas_Ep - 0.1;
     double Epmin = 0.20*elas_Ep;
     double step = (Epmax - Epmin)/(double)(Npoints - 1);
     dist[0].Ep = Epmin;
@@ -514,6 +523,12 @@ void calc_xs_dist(CHe3Elas &model, XSDist *dist, int Npoints, double Es, double 
     }
 }
 
+double loss_ext_brem(double Ei, double z, double t, double rnd)
+{
+    double b = 4./3.*(1. + (z + 1.)/9./(log(1194.*std::pow(z, -2./3.)) + z*log(184.15*std::pow(z, -1./3.))));
+    return Ei*std::pow(rnd*0.999, 1./(b*t));
+}
+
 void energy_loss(double Es = 1147, double angle = 9.03)
 {
     int nevents = 500000000;
@@ -522,7 +537,7 @@ void energy_loss(double Es = 1147, double angle = 9.03)
     double avg_loss1 = 0.23;
     double avg_loss2 = 3.086;
     CHe3Elas model("configs/elas_tail.conf");
-//    model.SetConfigValue("Radiative Approach", ConfigValue("BS"));
+    model.SetConfigValue("Radiative Approach", ConfigValue("BS"));
 //    model.SetConfigValue("Radiative Approach", ConfigValue("MT Exact"));
 //    model.SetConfigValue("Radiative Approach", ConfigValue("MT Approx"));
     model.Configure();
@@ -608,8 +623,10 @@ void energy_loss(double Es = 1147, double angle = 9.03)
         double lamdap = cana::linear_interp(itvp.first->cdf, itvp.first->lamda,
                                             itvp.second->cdf, itvp.second->lamda,
                                             rnd3);
-        double e_loss2 = (lamdap - lamda_avg2)*xi2 + avg_loss2;
-        int Epp = int(Es - (Ep - e_loss2) + 0.5);
+        double ioni_loss2 = (lamdap - lamda_avg2)*xi2 + avg_loss2;
+        double brem_loss2 = loss_ext_brem(Ep, 11.257, 4.492e-02, uni_dist(rng));
+
+        int Epp = int(Es - (Ep - ioni_loss2 - brem_loss2) + 0.5);
         if(Epp < 700 && Epp >= 0)
         {
             counts[Epp]++;

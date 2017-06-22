@@ -32,24 +32,25 @@ private:
     double int_ep(const double &Ep);
     double int_esdp(const double &Es);
     double get_cxsn(const double &E0, const double &Eb);
-    void init_model(const CExpData &exp_data, bool born_level = false);
-    void init_model_range(const CExpData::DataSet &ref_set);
+    void init_model(const CExpData::DataSet &ref_set);
+    void scale_model(const CExpData &exp_data, bool born_level);
     template<typename T>
     void number_operation(const std::string &key, T &val);
 
-    // some lines
-    void spectrum_init(const CExpData::DataSet &dset);
-    void point_init(const CExpData::DataPoint &point);
-    double __Ep_max(double Es);
-    double __Es_min(double Ep);
-    double __phi(double x);
-    double __eta(double Z);
-    double __Q2(double E, double Epr);
-    double __log_Q2m2(double E, double Epr);
-    double __F_bar(double E, double Epr, double gamma_t);
-    double __btr(double E, double Epr);
-    double __I(double E0, double E, double xi, double bt);
-    double __XI_Stein(double radl);
+    // some inlines
+    inline CExpData::DataSet get_ref_set(const CExpData &exp_data, bool model);
+    inline void spectrum_init(const CExpData::DataSet &dset);
+    inline void point_init(const CExpData::DataPoint &point);
+    inline double __Ep_max(double Es);
+    inline double __Es_min(double Ep);
+    inline double __phi(double x);
+    inline double __eta(double Z);
+    inline double __Q2(double E, double Epr);
+    inline double __log_Q2m2(double E, double Epr);
+    inline double __F_bar(double E, double Epr, double gamma_t);
+    inline double __btr(double E, double Epr);
+    inline double __I(double E0, double E, double xi, double bt);
+    inline double __XI_Stein(double radl);
 
 private:
     bool internal_RC, external_RC, user_defined_XI, peak_approx, use_model;

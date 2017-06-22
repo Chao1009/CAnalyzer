@@ -69,8 +69,7 @@ void CRadCorr::Initialize(const CExpData &exp_data, bool radiate)
 
     // calculate values based on the input configuration
     // common value for all spectrums
-    // it is for inelastic part, it should be electron-nucleon reactions
-    target_M = cana::proton_mass; //target_A * cana::amu;
+    target_M = target_A * cana::amu;
     sin2 = std::pow(sin(theta/2.), 2);
     cos2 = std::pow(cos(theta/2.), 2);
 
@@ -82,13 +81,12 @@ void CRadCorr::Initialize(const CExpData &exp_data, bool radiate)
     Bz /= log(183.*std::pow(target_Z, -1./3.));
     Bz = 4./3.*(1. + Bz);
 
-    if(use_model) {
-        // force using model for initializing
-        interp_source = nullptr;
-        init_model(exp_data, radiate);
-    }
-
     interp_source = &exp_data;
+
+    if(use_model) {
+        // initialize model
+       init_model(get_ref_set(exp_data, radiate));
+    }
 }
 
 // test some configuration values, warn some simple mistake
@@ -127,7 +125,8 @@ bool CRadCorr::SanityCheck(const CExpData &exp_data)
 // if else, it will do iterations until the result diff. reached the iter_prec
 void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 {
-    Initialize(exp_data, false);
+    bool radiate = false;
+    Initialize(exp_data, radiate);
 
     if(!SanityCheck(exp_data))
         return;
@@ -136,6 +135,9 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 
     for(int iter = 1; (iter <= iters) || end_by_prec; ++iter)
     {
+        // update model scaling factor
+        if(use_model) scale_model(exp_data, radiate);
+
         // do radiative correction for all data sets
         for(auto &dset : exp_data.GetSets())
         {
@@ -148,9 +150,9 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 
             // energy peaking or not
             if(peak_approx)
-                radcor(dset);
+                radcor(dset, radiate);
             else
-                xyrad2d(dset);
+                xyrad2d(dset, radiate);
         }
 
         // after correction, check if this iteration reaches the precision
@@ -192,13 +194,18 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 // radiate data sets
 void CRadCorr::Radiate(CExpData &exp_data)
 {
-    Initialize(exp_data, true);
+    bool radiate = true;
+
+    Initialize(exp_data, radiate);
 
     if(!SanityCheck(exp_data))
         return;
 
     for(auto &s : exp_data.GetSets())
     {
+        // update model scaling factor
+        if(use_model) scale_model(exp_data, radiate);
+
         // only radiate for Born Level
         if(!s.non_rad)
             continue;
@@ -206,9 +213,9 @@ void CRadCorr::Radiate(CExpData &exp_data)
         std::cout << "Radiate, spectrum energy: " << s.energy << std::endl;
 
         if(peak_approx)
-            radcor(s, true);
+            radcor(s, radiate);
         else
-            xyrad2d(s, true);
+            xyrad2d(s, radiate);
     }
 }
 
@@ -491,19 +498,28 @@ double CRadCorr::int_esdp(const double &Esx)
 }
 
 // interpolates or extrapolates
-inline double CRadCorr::get_cxsn(const double &E0, const double &Eb)
+double CRadCorr::get_cxsn(const double &E0, const double &Eb)
 {
     // not allowed
     if(Eb > __Ep_max(E0))
         return 0;
 
-    // use model for extrapolation
-    if(!interp_source || (use_model && !interp_source->InRange(E0))) {
-        return model.GetCrossSection(E0, Eb, theta);
-    // interpolation from model
+    if(!use_model) {
+        if(interp_source)
+            return interp_source->GetCrossSection(E0, Eb);
     } else {
-        return interp_source->GetCrossSection(E0, Eb);
+        if(interp_source && interp_source->InRange(E0))
+            return interp_source->GetCrossSection(E0, Eb);
+        else
+            return model.GetCrossSection(E0, Eb, theta);
     }
+
+    // no data for interpolation and model is not used
+    std::cerr << "Interpolation data do not exist, while model is not used, "
+              << "Cross section = 0 for Es = " << E0
+              << ", Ep = " << Eb
+              << std::endl;
+    return 0;
 }
 
 // a helper function to find the peak point
@@ -530,56 +546,67 @@ CIter find_peak(const std::vector<CExpData::DataPoint> &data, bool born_level)
     return res;
 }
 
-// initialize the model
-// determine the scale and shift from the data at lowest energy
-void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
+// helper function
+// find the reference set for model initialization
+// typically it is the lowest energy set
+CExpData::DataSet CRadCorr::get_ref_set(const CExpData &exp_data, bool model)
 {
-    // copy the first data set
-    CExpData::DataSet model_set;
     for(auto &dset : exp_data.GetSets())
     {
-        if(!born_level && !dset.non_rad) {
-            model_set = dset;
-            break;
-        }
+        if(!model && !dset.non_rad)
+            return dset;
 
-        if(born_level && dset.non_rad) {
-            model_set = dset;
-            break;
-        }
+        if(model && dset.non_rad)
+            return dset;
     }
 
-    // cannot find the data set or there are no data points
-    if(model_set.data.empty())
-        return;
+    return CExpData::DataSet();
+}
 
-    std::cout << "Initializing model scaling and shifting factors from data "
-              << "E = " << model_set.energy
+// initialize the model
+// determine the scale and shift from the data at lowest energy
+void CRadCorr::scale_model(const CExpData &exp_data, bool born)
+{
+    auto ref_set = get_ref_set(exp_data, born);
+
+    // cannot find the data set or there are no data points
+    if(ref_set.data.empty()) {
+        std::cerr << "Reference set for model scaling is empty, abort!"
+                  << std::endl;
+        return;
+    }
+
+    std::cout << "Determine model scaling factor from data "
+              << "E = " << ref_set.energy
               << std::endl;
 
-    // initialize model
-    init_model_range(model_set);
-    model.SetNormalization(1.0);
+    // force using model to calculate RC effects
+    auto save_source = interp_source;
+    interp_source = nullptr;
 
-    auto max_it = find_peak(model_set.data, born_level);
-    size_t max_idx = max_it - model_set.data.begin();
+    auto max_it = find_peak(ref_set.data, born);
+    size_t max_idx = max_it - ref_set.data.begin();
     CExpData::DataPoint max_point(*max_it);
 
     // keep the i +- 20 points around the data set
     std::vector<CExpData::DataPoint> model_points;
     size_t beg = (max_idx > 20) ? (max_idx - 20) : 0;
     size_t end = max_idx + 20;
-    for(size_t i = beg; i < end && i < model_set.data.size(); ++i)
+    for(size_t i = beg; i < end && i < ref_set.data.size(); ++i)
     {
-        CExpData::DataPoint point = model_set.data.at(i);
-        point.born = model.GetCrossSection(model_set.energy, point.Ep, exp_data.Angle()*cana::deg2rad);
+        CExpData::DataPoint point = ref_set.data.at(i);
+        point.born = model.GetCrossSection(ref_set.energy, point.Ep, exp_data.Angle()*cana::deg2rad);
         model_points.push_back(point);
     }
+
+    // construct model data set
+    CExpData::DataSet model_set;
+    model_set.CopySettings(ref_set);
     model_set.data = model_points;
 
     // if non-radiated, we can get the model scale factor now
-    if(born_level) {
-        CExpData::DataPoint max_model(*find_peak(model_set.data, born_level));
+    if(born) {
+        CExpData::DataPoint max_model(*find_peak(model_set.data, born));
         model.SetNormalization(max_point.born/max_model.born);
 
     // radiated will be a little bit more complicated
@@ -593,7 +620,7 @@ void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
             else
                 xyrad2d(model_set, true, false);
 
-            CExpData::DataPoint max_model(*find_peak(model_set.data, born_level));
+            CExpData::DataPoint max_model(*find_peak(model_set.data, born));
 
             model.SetNormalization(model.GetNormalization()*max_point.rad/max_model.rad);
 
@@ -609,12 +636,15 @@ void CRadCorr::init_model(const CExpData &exp_data, bool born_level)
         }
     }
 
-    std::cout << "Initialized, model scale = " << model.GetNormalization()
+    std::cout << "Done model scaling, factor = " << model.GetNormalization()
               << std::endl;
+    interp_source = save_source;
 }
 
-void CRadCorr::init_model_range(const CExpData::DataSet &ref)
+void CRadCorr::init_model(const CExpData::DataSet &ref)
 {
+    std::cout << "Initializing model grids for interpolations." << std::endl;
+
     // define Q^2 and W range according to the first data set
     const CExpData::DataPoint first_point = ref.data.front();
     double W_min = first_point.W, W_max = first_point.W;
@@ -634,10 +664,13 @@ void CRadCorr::init_model_range(const CExpData::DataSet &ref)
     int W_bins = cana::clamp(int((W_max - W_min)/W_step) + 1, 200, 2000);
     int Q2_bins = cana::clamp(int((Q2_max - Q2_min)/Q2_step) + 1, 100, 500);
     model.SetRange(Q2_min, Q2_max, Q2_bins, W_min, W_max, W_bins);
+    model.SetNormalization(1.0);
+
+    std::cout << "Model initialization done" << std::endl;
 }
 
 // spectrum based kinematics intialization
-inline void CRadCorr::spectrum_init(const CExpData::DataSet &s)
+void CRadCorr::spectrum_init(const CExpData::DataSet &s)
 {
     // update these parameters when external RC is ON
     if(external_RC) {
@@ -668,7 +701,7 @@ inline void CRadCorr::spectrum_init(const CExpData::DataSet &s)
 }
 
 // data point based kinematics initialization
-inline void CRadCorr::point_init(const CExpData::DataPoint &point)
+void CRadCorr::point_init(const CExpData::DataPoint &point)
 {
     // kinematics
     Ep = point.Ep;
@@ -689,50 +722,50 @@ inline void CRadCorr::point_init(const CExpData::DataPoint &point)
     BTR = __btr(Es, Ep);
 }
 
-// some inline functions
+// some  functions
 //
 // Emax for integration, sin2 and target_M is pre-calculated inside the class
-inline double CRadCorr::__Ep_max(double _Es)
+double CRadCorr::__Ep_max(double _Es)
 {
     return _Es/(1. + 2.*_Es*sin2/target_M);
 }
 
 // Emin for integration, sin2 and target_M is pre-calculated inside the class
-inline double CRadCorr::__Es_min(double _Ep)
+ double CRadCorr::__Es_min(double _Ep)
 {
     return _Ep/(1. - 2.*_Ep*sin2/target_M);
 }
 
 // Q2 for E and E', sin2 is pre-calculated inside the class
-inline double CRadCorr::__Q2(double _E, double _Epr)
+ double CRadCorr::__Q2(double _E, double _Epr)
 {
     return 4.*_E*_Epr*sin2;
 }
 
-// log(Q2/m2) for E and E', used inline __Q2
-inline double CRadCorr::__log_Q2m2(double _E, double _Epr)
+// log(Q2/m2) for E and E', used  __Q2
+ double CRadCorr::__log_Q2m2(double _E, double _Epr)
 {
     return log(__Q2(_E, _Epr)/cana::ele_mass/cana::ele_mass);
 }
 
 // phi
-inline double CRadCorr::__phi(double _x)
+ double CRadCorr::__phi(double _x)
 {
     return 1. - _x + 3.*_x*_x/4.;
 }
 
 // eta(Z)
-inline double CRadCorr::__eta(double _Z)
+ double CRadCorr::__eta(double _Z)
 {
     return log(1440.*std::pow(_Z, -2./3.))/log(183.*std::pow(_Z, -1./3.));
 }
 
-// Get Fbar(Q2), used inline __log_Q2m2, Schwinger term is pre-calculated
+// Get Fbar(Q2), used  __log_Q2m2, Schwinger term is pre-calculated
 // improvement from J. Singh, higher order terms DHO is exponentiated,
 // 1+0.5772*bt term is replaced by two gamma normalization, see GAMT for details
 // exp(DHO)/gamma(1+bt) = (1 + 0.5772*bt + ...)*(1 + DHO + ...)
 //                      = 1 + 0.5772*bt + DHO + ... [Eq. (2.8) in TSAI71]
-inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
+ double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 {
     if(!internal_RC)
         return 1./_gamma_t;
@@ -751,8 +784,8 @@ inline double CRadCorr::__F_bar(double _E, double _Epr, double _gamma_t)
 }
 
 // Get tr(Q2), effective radiator thickness before and after the scattering from
-// external Bremsstrahlung process, used inline __log_Q2m2
-inline double CRadCorr::__btr(double _E, double _Epr)
+// external Bremsstrahlung process, used  __log_Q2m2
+ double CRadCorr::__btr(double _E, double _Epr)
 {
     if(!internal_RC)
         return 0.;
@@ -763,14 +796,14 @@ inline double CRadCorr::__btr(double _E, double _Epr)
 // Probability function I(E0, E, t)
 // __XI is accounted for collisional loss 
 // NOTICE here we are using b(z)t instead of t
-inline double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
+ double CRadCorr::__I(double _E0, double _E, double _XI, double _bt)
 {
     double _dE = _E0 - _E;
     return std::pow(_dE/_E0, _bt) / cana::gamma(1. + _bt) * (__phi(_dE/_E0)*_bt + _XI/_dE)/_dE;
 }
 
 // calculate XI based on Stein's formula, require radiation length as input
-inline double CRadCorr::__XI_Stein(double radl)
+ double CRadCorr::__XI_Stein(double radl)
 {
     // formula from Stein, but old and probably wrong estimation
     double xi = (cana::pi*cana::ele_mass/2/cana::alpha);

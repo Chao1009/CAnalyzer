@@ -405,3 +405,15 @@ const
     b = (p3.born*p3.Q2 - p1.born*p1.Q2)/(xp - xm) - c*(xp + xm);
     return (a + b*x + c*x*x);
 }
+
+void CExpData::DataSet::CopySettings(const CExpData::DataSet &ref)
+{
+    energy = ref.energy;
+    radl_before = ref.radl_before;
+    radl_after = ref.radl_after;
+    coll_before = ref.coll_before;
+    coll_after = ref.coll_after;
+    error = ref.error;
+    normalization = ref.normalization;
+    non_rad = ref.non_rad;
+}

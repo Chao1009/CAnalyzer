@@ -8,11 +8,11 @@ using namespace std;
 
 void gen_tail()
 {
-    CExpData data("configs/data_sets_9deg.conf");
+    CExpData data("configs/data_sets_6deg.conf");
     CElasTails eltail("configs/elas_tail.conf");
 
-    eltail.Initialize(data, 0);
+    eltail.Initialize(data, 1);
     eltail.Generate();
-    eltail.Output("output/tail_1147.out");
+    eltail.Output("output/tail_2845.out");
 }
 
