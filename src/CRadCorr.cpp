@@ -86,6 +86,7 @@ void CRadCorr::Initialize(const CExpData &exp_data, bool radiate)
     if(use_model) {
         // initialize model
        init_model(get_ref_set(exp_data, radiate));
+       scale_model(exp_data, radiate);
     }
 }
 
@@ -135,9 +136,6 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
 
     for(int iter = 1; (iter <= iters) || end_by_prec; ++iter)
     {
-        // update model scaling factor
-        if(use_model) scale_model(exp_data, radiate);
-
         // do radiative correction for all data sets
         for(auto &dset : exp_data.GetSets())
         {
@@ -203,9 +201,6 @@ void CRadCorr::Radiate(CExpData &exp_data)
 
     for(auto &s : exp_data.GetSets())
     {
-        // update model scaling factor
-        if(use_model) scale_model(exp_data, radiate);
-
         // only radiate for Born Level
         if(!s.non_rad)
             continue;
