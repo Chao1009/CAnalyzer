@@ -640,6 +640,7 @@ void CRadCorr::init_model(const CExpData::DataSet &ref)
 {
     std::cout << "Initializing model grids for interpolations." << std::endl;
 
+    model.SetNormalization(1.0);
     // define Q^2 and W range according to the first data set
     const CExpData::DataPoint first_point = ref.data.front();
     double W_min = first_point.W, W_max = first_point.W;
@@ -659,7 +660,6 @@ void CRadCorr::init_model(const CExpData::DataSet &ref)
     int W_bins = cana::clamp(int((W_max - W_min)/W_step) + 1, 200, 2000);
     int Q2_bins = cana::clamp(int((Q2_max - Q2_min)/Q2_step) + 1, 100, 500);
     model.SetRange(Q2_min, Q2_max, Q2_bins, W_min, W_max, W_bins);
-    model.SetNormalization(1.0);
 
     std::cout << "Model initialization done" << std::endl;
 }

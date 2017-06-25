@@ -36,7 +36,7 @@ void rad_corr(const string &data_conf = "configs/data_sets_9deg.conf")
     data.ReadConfigFile(data_conf);
 
 //    rad_cor.Radiate(data);
-    rad_cor.RadiativeCorrection(data, 2);
+    rad_cor.RadiativeCorrection(data, 1);
 
     data.SaveResult("output/radcor_out.dat");
 }

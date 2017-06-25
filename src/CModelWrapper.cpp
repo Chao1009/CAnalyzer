@@ -72,8 +72,6 @@ void CModelWrapper::SetRange(double Qsq_min, double Qsq_max, int Qsq_bins,
         return;
     }
 
-    norm = 1.0;
-
     double Qsq_step = (Qsq_max - Qsq_min)/(double)Qsq_bins;
     double W_step = (W_max - W_min)/(double)W_bins;
 
