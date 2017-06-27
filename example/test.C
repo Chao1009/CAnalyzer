@@ -130,7 +130,7 @@ class MyQuad
     double c;
 public:
     MyQuad(double cc = 1) : c(cc) {};
-    double eval(const double &x) {return c*x*x;};
+    double eval(double x) {return c*x*x;};
 };
 
 void function_test()
@@ -158,12 +158,12 @@ void function_test()
              << setw(8) << s << ", "
              << setw(15) << cana::spence(s) << endl;
 
-    MyQuad myq(2.0);
 
-    cout << cana::simpson(0, 10, &quad, 0.01, 1000) << endl;
-    cout << cana::simpson(0, 10, &MyQuad::eval, &myq, 0.01, 1000) << endl;
+    cout << cana::simpson(quad, 0, 10, 1000) << endl;
+    MyQuad myq(1.0);
+    cout << cana::simpson(&MyQuad::eval, &myq, 0, 10, 1000) << endl;
     auto lmd_quad = [](double x) {return x*x;};
-    cout << cana::simpson(0, 10, 1000, lmd_quad) << endl;
+    cout << cana::simpson(lmd_quad, 0, 10, 1000) << endl;
 }
 
 void model_wrapper_test(double energy, double angle, double nu_min, double nu_max)

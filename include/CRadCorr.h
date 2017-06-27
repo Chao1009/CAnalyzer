@@ -25,13 +25,13 @@ public:
 private:
     void radcor(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
     void xyrad2d(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
-    double fes(const double &Es);
-    double fep(const double &Ep);
-    double int_es(const double &Es);
-    double int_esep(const double &Ep, const double &Es);
-    double int_ep(const double &Ep);
-    double int_esdp(const double &Es);
-    double get_cxsn(const double &E0, const double &Eb);
+    double fes(double Es);
+    double fep(double Ep);
+    double int_es(double Es);
+    double int_esep(double Ep, double Es);
+    double int_ep(double Ep);
+    double int_esdp(double Es);
+    double get_cxsn(double E0, double Eb);
     void init_model(const CExpData::DataSet &ref_set);
     void scale_model(const CExpData &exp_data, bool born_level);
     template<typename T>
@@ -55,7 +55,7 @@ private:
 private:
     bool internal_RC, external_RC, user_defined_XI, peak_approx, use_model;
     int n_sim, n_sim_2d;
-    double iter_prec, sim_step, sim_step_2d;
+    double iter_prec;
     double target_Z, target_A, target_M;
     double theta, sin2, cos2;
 

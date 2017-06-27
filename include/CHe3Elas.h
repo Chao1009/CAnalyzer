@@ -20,15 +20,15 @@ public:
     void Configure(const std::string &path = "");
     void Initialize(bool uxi, bool pol, double pol_th);
     // unit: MeV, rad, radiation length, ub/MeV/sr
-    double GetRadXS(const double &Es, const double &Ep, const double &theta,
-                    const double &radl_in, const double &radl_out,
-                    const double &xi_in = 0., const double &xi_out = 0.);
-    static void GetEMFFs(const double &Q2, double &GE, double &GM);
-    static double GetBornXS(const double &Es, const double &theta);
+    double GetRadXS(double Es, double Ep, double theta,
+                    double radl_in, double radl_out,
+                    double xi_in = 0., double xi_out = 0.);
+    static void GetEMFFs(double Q2, double &GE, double &GM);
+    static double GetBornXS(double Es, double theta);
 
 private:
-    double xyradel(const double &Es, const double &Ep, const double &theta);
-    double int_es(const double &Esx, const double &theta, const double &Es, const double &Ep);
+    double xyradel(double Es, double Ep, double theta);
+    double int_es(double Esx, double theta, double Es, double Ep);
     double __Ep_max(double _Es);
     double __Es_min(double _Ep);
     double __Q2(double _E, double _Epr);

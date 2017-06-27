@@ -43,18 +43,13 @@ void CRadCorr::Configure(const std::string &path)
 
     // calculation related
     iter_prec = getDefConfig<double>("Iteration Precision", 0.005);
-    n_sim = getDefConfig<int>("Min Number of Simpson Bins", 10000);
-    sim_step = getDefConfig<double>("Simpson Step Size", 0.1);
+    n_sim = getDefConfig<int>("Simpson Steps", 10000);
     // for non-peaking-approximation only
     // 2d integral is much slower than 1d, thus configure the step carefully
-    n_sim_2d = getDefConfig<int>("Min 2D Simpson Bins", 100);
-    sim_step_2d = getDefConfig<double>("2D Simpson Step Size", 1.);
+    n_sim_2d = getDefConfig<int>("Simpson Steps 2D", 100);
 
     // data related
-    delta = getDefConfig<double>("IR DIV Delta", 10);
-    // for non-peaking-approximation only
-    delta1 = getDefConfig<double>("Delta1", 5);
-    delta2 = getDefConfig<double>("Delta2", 5);
+    delta = getDefConfig<double>("IR DIV Delta", 5);
 }
 
 
@@ -105,13 +100,13 @@ bool CRadCorr::SanityCheck(const CExpData &exp_data)
         return false;
     }
 
-    if(sim_step <= 0 || sim_step_2d <= 0) {
-        std::cout << "Simpson integration step size must be > 0"
+    if(n_sim <= 0 || n_sim_2d <= 0) {
+        std::cout << "Simpson steps must be > 0"
                   << std::endl;
         return false;
     }
 
-    if(delta <= 0 || delta1 <= 0 || delta2 <= 0) {
+    if(delta <= 0) {
         std::cout << "Delta must be > 0 MeV"
                   << std::endl;
         return false;
@@ -275,9 +270,9 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
         double SIGLOW = 0, SIGBEF = 0, SIGAFT = 0;
 
         double FBAR = __F_bar(Es, Ep, GAMT);
-        SIGLOW = FBAR * std::pow(R*delta/Es, BTB + BTR)
-                      * std::pow(delta/Ep, BTA + BTR)
-                      * (1. - (XIB+XIA)/delta/(1. - BTB - BTA - 2.*BTR));
+        SIGLOW = FBAR * std::pow(R*delta1/Es, BTB + BTR)
+                      * std::pow(delta1/Ep, BTA + BTR)
+                      * (1. - (XIB+XIA)/delta1/(1. - BTB - BTA - 2.*BTR));
 
         // calculate integral along dEs for fixed Ep SIGBEF
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
@@ -289,7 +284,7 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
                           << std::endl;
             }
         } else {
-            SIGBEF = cana::simpson(Esmin, Esmax, &CRadCorr::fes, this, sim_step, n_sim);
+            SIGBEF = cana::simpson(&CRadCorr::fes, this, Esmin, Esmax, n_sim);
         }
 
         // calculate integral along dEp for fixed Es SIGAFT
@@ -302,7 +297,7 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
                           << std::endl;
             }
         } else {
-            SIGAFT = cana::simpson(Epmin, Epmax, &CRadCorr::fep, this, sim_step, n_sim);
+            SIGAFT = cana::simpson(&CRadCorr::fep, this, Epmin, Epmax, n_sim);
         }
 
         if(radiate) {
@@ -323,7 +318,7 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
 }
 
 // for integral along dEs
-double CRadCorr::fes(const double &Esx)
+double CRadCorr::fes(double Esx)
 {
     double FBAR = __F_bar(Esx, Ep, GAMT);
     double TRx = __btr(Esx, Ep);
@@ -338,7 +333,7 @@ double CRadCorr::fes(const double &Esx)
 }
 
 // for integral along dEp
-double CRadCorr::fep(const double &Epx)
+double CRadCorr::fep(double Epx)
 {
     double FBAR = __F_bar(Es, Epx, GAMT);
     double TRx = __btr(Es, Epx);
@@ -411,8 +406,8 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
                           << std::endl;
             }
         } else {
-            int_2d = cana::simpson(Esmin, Esmax, &CRadCorr::int_es, this, sim_step_2d, n_sim_2d);
-            sgl_Ep = cana::simpson(Esmin, Esmax, &CRadCorr::int_esdp, this, sim_step, n_sim);
+            int_2d = cana::simpson(&CRadCorr::int_es, this, Esmin, Esmax, n_sim_2d);
+            sgl_Ep = cana::simpson(&CRadCorr::int_esdp, this, Esmin, Esmax, n_sim);
         }
 
         if((Epmin <= 0) || (Epmax <= 0) || (Epmin >= Epmax)) {
@@ -424,7 +419,7 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
                           << std::endl;
             }
         } else {
-            sgl_Es = cana::simpson(Epmin, Epmax, &CRadCorr::int_ep, this, sim_step, n_sim);
+            sgl_Es = cana::simpson(&CRadCorr::int_ep, this, Epmin, Epmax, n_sim);
             // Es singularity
             sgl_Es *= std::pow(delta1/Es, BTB + BTR)/cana::gamma(1. + BTB + BTR);
             // coll. loss term
@@ -450,18 +445,18 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
 }
 
 // it is a 2d integral int_es(int_ep)
-double CRadCorr::int_es(const double &Esx)
+double CRadCorr::int_es(double Esx)
 {
-    double Ep_max = __Ep_max(Esx);
-    double Ep_min = delta2 + Ep; // delta2
-    if(Ep_max < Ep_min)
+    double int_beg = delta2 + Ep; // delta2
+    double int_end = __Ep_max(Esx);
+    if(int_end <= int_beg)
         return 0.;
 
-    return cana::simpson(Ep_min, Ep_max, sim_step_2d, n_sim_2d, &CRadCorr::int_esep, this, Esx);
+    return cana::simpson(&CRadCorr::int_esep, this, int_beg, int_end, n_sim_2d, Esx);
 }
 
 // should be inside int_es
-double CRadCorr::int_esep(const double &Epx, const double &Esx)
+double CRadCorr::int_esep(double Epx, double Esx)
 {
     double FBAR = __F_bar(Esx, Epx, GAMT);
     double TRx = __btr(Esx, Epx);
@@ -469,7 +464,7 @@ double CRadCorr::int_esep(const double &Epx, const double &Esx)
 }
 
 // integral over ep and es singularity
-double CRadCorr::int_ep(const double &Epx)
+double CRadCorr::int_ep(double Epx)
 {
     double FBAR = __F_bar(Es, Epx, GAMT);
     double TRx = __btr(Es, Epx);
@@ -479,7 +474,7 @@ double CRadCorr::int_ep(const double &Epx)
 }
 
 // integral over es and ep singularity
-double CRadCorr::int_esdp(const double &Esx)
+double CRadCorr::int_esdp(double Esx)
 {
     double FBAR = __F_bar(Esx, Ep, GAMT);
     double TRx = __btr(Esx, Ep);
@@ -493,7 +488,7 @@ double CRadCorr::int_esdp(const double &Esx)
 }
 
 // interpolates or extrapolates
-double CRadCorr::get_cxsn(const double &E0, const double &Eb)
+double CRadCorr::get_cxsn(double E0, double Eb)
 {
     // not allowed
     if(Eb > __Ep_max(E0))
@@ -701,20 +696,23 @@ void CRadCorr::point_init(const CExpData::DataPoint &point)
     // kinematics
     Ep = point.Ep;
 
+    // equivalent radiator from Bremsstrahlung
+    BTR = __btr(Es, Ep);
+
     Esmin = __Es_min(Ep);
     Epmax = __Ep_max(Es);
 
     if(peak_approx) {
         R = Esmin/Epmax * Es/Ep;
-        Esmax = Es - R*delta;
-        Epmin = Ep + delta;
+        delta1 = (XIB+XIA)/(1. - BTB - BTA - 2.*BTR) + delta;
+        Esmax = Es - R*delta1;
+        Epmin = Ep + delta1;
     } else {
+        delta1 = XIB/(1. - BTB - BTR) + delta;
+        delta2 = XIA/(1. - BTA - BTR) + delta;
         Esmax = Es - delta1;
         Epmin = Ep + delta2;
     }
-
-    // equivalent radiator from Bremsstrahlung
-    BTR = __btr(Es, Ep);
 }
 
 // some  functions

@@ -97,7 +97,7 @@ void CHe3Elas::Initialize(bool uxi, bool pol, double pol_th)
 
 // input: Four momentum transfer in fm^(-2)
 // output: electromagnetic form factors GE and GM
-void CHe3Elas::GetEMFFs(const double &Q2, double &GE, double &GM)
+void CHe3Elas::GetEMFFs(double Q2, double &GE, double &GM)
 {
     double Q = sqrt(Q2);
     double G2 = _gaus_rms*_gaus_rms;
@@ -125,7 +125,7 @@ void CHe3Elas::GetEMFFs(const double &Q2, double &GE, double &GM)
 
 // input: incident energy in MeV, scattering angle in rad
 // output: elastic scattering cross section at Born level in ub/MeV/sr
-double CHe3Elas::GetBornXS(const double &Es, const double &theta)
+double CHe3Elas::GetBornXS(double Es, double theta)
 {
     // kinematics calculation
     double sinsq = sin(theta/2.)*sin(theta/2.);
@@ -150,9 +150,9 @@ double CHe3Elas::GetBornXS(const double &Es, const double &theta)
 // output the radiated He3 elastic cross section
 // input in MeV, rad, unit rad length
 // output in ub/MeV/sr
-double CHe3Elas::GetRadXS(const double &Es, const double &Ep, const double &theta,
-                          const double &radl_in, const double &radl_out,
-                          const double &xi_in, const double &xi_out)
+double CHe3Elas::GetRadXS(double Es, double Ep, double theta,
+                          double radl_in, double radl_out,
+                          double xi_in, double xi_out)
 {
     // update related variables
     BTB = radl_in*Bz, BTA = radl_out*Bz;
@@ -179,7 +179,7 @@ double CHe3Elas::GetRadXS(const double &Es, const double &Ep, const double &thet
 
 // output for xyradel, unit is ub/MeV/sr
 // radiation length and collisional loss are determined in GetRadXS
-double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta)
+double CHe3Elas::xyradel(double Es, double Ep, double theta)
 {
     // update angle dependent terms
     sin2 = std::pow(sin(theta/2.), 2);
@@ -226,16 +226,14 @@ double CHe3Elas::xyradel(const double &Es, const double &Ep, const double &theta
         */
         int_Es = 0.;
     } else {
-        int_Es = cana::simpson(Es_beg, Es_end, sim_step, n_sim,
-                               &CHe3Elas::int_es, this, theta, Es, Ep);
+        int_Es = cana::simpson(&CHe3Elas::int_es, this, Es_beg, Es_end, n_sim, theta, Es, Ep);
     }
 
     return sgl_Es + sgl_Ep + int_Es;
 }
 
 // integral over es for elastic process
-double CHe3Elas::int_es(const double &Esx, const double &theta,
-                          const double &Es, const double &Ep)
+double CHe3Elas::int_es(double Esx, double theta, double Es, double Ep)
 {
     // elastic
     double Epx = __Ep_max(Esx);
