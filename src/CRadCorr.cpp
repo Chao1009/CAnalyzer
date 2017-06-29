@@ -272,7 +272,7 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
         double FBAR = __F_bar(Es, Ep, GAMT);
         SIGLOW = FBAR * std::pow(R*delta1/Es, BTB + BTR)
                       * std::pow(delta1/Ep, BTA + BTR)
-                      * (1. - (XIB+XIA)/delta1/(1. - BTB - BTA - 2.*BTR));
+                      * (1. - (XIB + XIA)/(1. - BTB - BTA - 2.*BTR)/delta1);
 
         // calculate integral along dEs for fixed Ep SIGBEF
         if((Esmin <= 0) || (Esmax <= 0) || (Esmin >= Esmax)) {
@@ -704,7 +704,7 @@ void CRadCorr::point_init(const CExpData::DataPoint &point)
 
     if(peak_approx) {
         R = Esmin/Epmax * Es/Ep;
-        delta1 = (XIB+XIA)/(1. - BTB - BTA - 2.*BTR) + delta;
+        delta1 = (XIB + XIA)/(1. - BTB - BTA - 2.*BTR) + delta;
         Esmax = Es - R*delta1;
         Epmin = Ep + delta1;
     } else {
