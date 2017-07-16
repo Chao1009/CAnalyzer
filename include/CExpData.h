@@ -10,6 +10,7 @@ public:
     struct Settings
     {
         double angle, targetZ, targetA;
+        double radl_factor_before, radl_factor_after;
         std::string data_dir, accpt_dir, coll_dir;
     };
 
@@ -63,7 +64,7 @@ public:
           error(0.), normalization(1.), non_rad(false)
         {};
 
-        void ReadConfig(const std::string &conf_str);
+        void ReadConfig(const std::string &conf_str, const Settings &gset);
         void ReadData(const std::string &path, const std::string &label);
         double Interp(const double &v) const;
         void CopySettings(const DataSet &ref);

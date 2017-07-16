@@ -6,13 +6,17 @@
 
 using namespace std;
 
-void gen_tail()
+void gen_tail(const string &data_conf = "configs/data_sets_9deg.conf")
 {
-    CExpData data("configs/data_sets_6deg.conf");
+    CExpData data(data_conf);
     CElasTails eltail("configs/elas_tail.conf");
 
-    eltail.Initialize(data, 1);
-    eltail.Generate();
-    eltail.Output("output/tail_2845.out");
+    for(size_t i = 0; i < data.Size(); ++i)
+    {
+        eltail.Initialize(data, i);
+        eltail.Generate();
+        string output = "output/tail_" + to_string((int)data.GetSet(i).energy) + ".out";
+        eltail.Output(output);
+    }
 }
 

@@ -101,7 +101,7 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
         } else if(ConfigParser::case_ins_equal(block.label, "DATASET")) {
 
             DataSet new_set;
-            new_set.ReadConfig(block.content);
+            new_set.ReadConfig(block.content, settings);
 
             if((new_set.energy > 0.) &&
                !cana::is_in(new_set.energy, data_sets.begin(), data_sets.end())) {
@@ -112,15 +112,6 @@ void CExpData::ReadConfigFile(const std::string &path, bool verbose)
                           << std::endl;
             }
         }
-    }
-
-    // pass global settings to each data set
-    for(auto &dset : data_sets) {
-        dset.data_file = combine_path(settings.data_dir, dset.data_file);
-        dset.coll_file = combine_path(settings.coll_dir, dset.coll_file);
-        dset.accpt_file = combine_path(settings.accpt_dir, dset.accpt_file);
-        // read data points
-        dset.ReadData(dset.data_file, dset.data_label);
     }
 
     // initialize all data sets and sort them in energy transcendent order
@@ -210,6 +201,14 @@ void CExpData::ReadSettings(const std::string &config, const std::string &path)
     conf::update_config(conf_obj, "Data Folder", settings.data_dir);
     conf::update_config(conf_obj, "Collimator Folder", settings.coll_dir);
     conf::update_config(conf_obj, "Acceptance Folder", settings.accpt_dir);
+
+    // default value
+    settings.radl_factor_before = 1.0;
+    settings.radl_factor_after = 1.0;
+    conf::update_config(conf_obj, "RadL Factor Before", settings.radl_factor_before);
+    conf::update_config(conf_obj, "RadL Factor After", settings.radl_factor_after);
+
+    // set directories
     settings.data_dir = combine_path(conf_dir, settings.data_dir);
     settings.coll_dir = combine_path(conf_dir, settings.coll_dir);
     settings.accpt_dir = combine_path(conf_dir, settings.accpt_dir);
@@ -282,7 +281,7 @@ const
 }
 
 // read configuration for the data set
-void CExpData::DataSet::ReadConfig(const std::string &config)
+void CExpData::DataSet::ReadConfig(const std::string &config, const CExpData::Settings &gset)
 {
     ConfigObject conf_obj;
 
@@ -302,6 +301,13 @@ void CExpData::DataSet::ReadConfig(const std::string &config)
     conf::update_config(conf_obj, "Acceptance File", accpt_file);
     conf::update_config(conf_obj, "Collimator File", coll_file);
 
+    // update radiation length from global factors
+    // this is for systematics study
+    radl_before *= gset.radl_factor_before;
+    radl_after *= gset.radl_factor_after;
+    coll_before *= gset.radl_factor_before;
+    coll_after *= gset.radl_factor_after;
+
     // update ice thickness and change corresponding values
     double ice_before = 0., ice_after = 0.;
     conf::update_config(conf_obj, "Ice Before", ice_before);
@@ -310,6 +316,13 @@ void CExpData::DataSet::ReadConfig(const std::string &config)
     radl_after += __ice_radl(ice_after);
     coll_before += __ice_coll(ice_before);
     coll_after += __ice_coll(ice_after);
+
+    // update data files path
+    data_file = combine_path(gset.data_dir, data_file);
+    coll_file = combine_path(gset.coll_dir, coll_file);
+    accpt_file = combine_path(gset.accpt_dir, accpt_file);
+    // read data points
+    ReadData(data_file, data_label);
 }
 
 // read experimental data in the format line by line
@@ -360,19 +373,23 @@ void CExpData::DataSet::ReadData(const std::string &path, const std::string &lab
 double CExpData::DataSet::Interp(const double &w)
 const
 {
-    // for low nu region, it is impossible to extrapolate
-    if(w < data.front().W)
-        return 0.;
+    // out of range
+    // try to extrapolate, but it is very dangerous and may result in a big error
+    if(w < data.front().W) {
+        double xs = (data.size() < 3) ? 0. :
+                    cana::parabolic_interp(data[0].W, data[0].born*data[0].Q2,
+                                           data[1].W, data[1].born*data[0].Q2,
+                                           data[2].W, data[2].born*data[0].Q2, w);
+        if(xs < 0.) xs = 0.;
+        return xs;
     // assuming uniform distribution for high nu region (DIS)
-    if(w >= data.back().W)
+    } else if(w >= data.back().W) {
         return data.back().born*data.back().Q2;
+    }
+
 
     // search the position of w
     auto it_pair = cana::binary_search_interval(data.begin(), data.end(), w);
-
-    // not found
-    if(it_pair.second == data.end() || it_pair.first == data.end())
-        return 0;
 
     // exact matched
     if(it_pair.first == it_pair.second)
@@ -382,28 +399,17 @@ const
     if(it_pair.first == data.begin()) {
         const DataPoint &p1 = *it_pair.first;
         const DataPoint &p2 = *it_pair.second;
-
-        double _interp = p1.born*p1.Q2*(p2.W - w) + p2.born*p2.Q2*(w - p1.W);
-
-        // LATEST CHANGE: removed unknown constant 0.00001 here, 
-        // probably some protection for two same points
-        return _interp/(p2.W - p1.W);
-    }
-
+        return cana::linear_interp<double>(p1.W, p1.born*p1.Q2,
+                                           p2.W, p2.born*p2.Q2, w);
     // 3 points parabolic fit
-    const DataPoint &p1 = *(it_pair.first - 1);
-    const DataPoint &p2 = *it_pair.first;
-    const DataPoint &p3 = *it_pair.second;
-    double x, xp, xm, a, b, c;
-    x = w - p2.W;
-    xp = p3.W - p2.W;
-    xm = p1.W - p2.W;
-    a = p2.born*p2.Q2;
-    c = (p3.born*p3.Q2 - p1.born*p1.Q2)*(xp + xm)/(xp - xm);
-    c -= (p3.born*p3.Q2 + p1.born*p1.Q2 - 2*p2.born*p2.Q2);
-    c /= xp*xm*2;
-    b = (p3.born*p3.Q2 - p1.born*p1.Q2)/(xp - xm) - c*(xp + xm);
-    return (a + b*x + c*x*x);
+    } else {
+        const DataPoint &p1 = *(it_pair.first - 1);
+        const DataPoint &p2 = *it_pair.first;
+        const DataPoint &p3 = *it_pair.second;
+        return cana::parabolic_interp<double>(p1.W, p1.born*p1.Q2,
+                                              p2.W, p2.born*p2.Q2,
+                                              p3.W, p3.born*p3.Q2, w);
+    }
 }
 
 void CExpData::DataSet::CopySettings(const CExpData::DataSet &ref)

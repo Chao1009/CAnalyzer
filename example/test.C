@@ -6,6 +6,17 @@
 #include "CElasTails.h"
 #include "CNeuralNetwork.h"
 
+void my_test()
+{
+    cout << cana::linear_interp<double>(1, 1, 2, 2, 0.5) << endl;
+    cout << cana::linear_interp<double>(1, 1, 2, 2, 1.5) << endl;
+    cout << cana::linear_interp<double>(1, 1, 2, 2, 2.5) << endl;
+    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 1.5) << endl;
+    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 2.5) << endl;
+    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 3.5) << endl;
+    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 4.5) << endl;
+}
+
 void fit_test()
 {
     // read formula
