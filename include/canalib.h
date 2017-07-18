@@ -136,9 +136,9 @@ namespace cana
         int count = 0;
 
         // wrapper member function
-        auto fn = [t, f] (double val, Args&&... args)
+        auto fn = [t, f] (double val, Args&&... args2)
                   {
-                      return (t->*f)(val, args...);
+                      return (t->*f)(val, args2...);
                   };
 
         return simpson_prec_helper(fn, a, f_a, b, f_b, prec, count, args...);
@@ -492,7 +492,6 @@ namespace cana
         }
     }
 
-
-};
+} // namespace cana
 
 #endif
