@@ -10,7 +10,7 @@
       COMMON/POLTARG/AMT,TARA,TARZ
       COMMON/P/PI,PI2,ALFA,I1(8),I2(8)
 
-       !DATA AMT/2.8094D0/,     TARA/3D0/, TARZ/2D0/   
+       !DATA AMT/2.8094D0/,     TARA/3D0/, TARZ/2D0/
        !DATA AMT/0.93827231D0/, TARA/1D0/, TARZ/1D0/                 ! CPROT
 
 
@@ -68,7 +68,7 @@
       Q2  = 4.0*E0*EP*SIN(0.5*TH_RAD)**2 * 1.0E-6
       XNU = (E0-EP)                      * 1.0E-3
 
-!$$$  W2  = 0.938272*(0.938272 + 2.0*XNU) - Q2             
+!$$$  W2  = 0.938272*(0.938272 + 2.0*XNU) - Q2
       W2  = AMT*(AMT + 2.0*XNU) - Q2
 
       IF (W2.LE.0.0) THEN
@@ -97,7 +97,7 @@
       W2_ELAS = AMT**2                                    ! USE HE3 MASS FOR W2
 
       SNUC    = 2.0*AMH*SQRT((E0*1.0E-3)**2+AML2)
-      Y       = SNUC*XS*YS*(AMT/AMH)                      ! Q^2 
+      Y       = SNUC*XS*YS*(AMT/AMH)                      ! Q^2
 
       YMA     = 1D0/(1D0+AMT**2*XS/SNUC) ! MAXIMUM Y FOR A GIVEN E AND X. IT OCCURRS
                                          ! AT BACK SCATTERING, THETA = 180 DEGREES
@@ -131,25 +131,25 @@
 
       ISF3 = 1
 
-      IF (IPOL.EQ.0 .OR. IPOL.EQ.2) THEN  ! CROSS SECTION FOR UNPOLARIZED HADRON TARGET         
-         UN = 1.0               ! UN = 1 CALCULATES F1 AND F2 STRUCTURE FUNCTION      
-         PL = 1.0               ! LEPTON POLARIZATION                                 
-         PN = 0.0               ! UNPOLARIZED TARGET, G1 = G2 = 0                     
+      IF (IPOL.EQ.0 .OR. IPOL.EQ.2) THEN  ! CROSS SECTION FOR UNPOLARIZED HADRON TARGET
+         UN = 1.0               ! UN = 1 CALCULATES F1 AND F2 STRUCTURE FUNCTION
+         PL = 1.0               ! LEPTON POLARIZATION
+         PN = 0.0               ! UNPOLARIZED TARGET, G1 = G2 = 0
          QN = 0.0               ! QN = 0 FOR THE HADRONIC TENSOR FOR SPIN 1/2 PARTICLE
          ISF1 = 1
          ISF2 = 2
-      ELSE IF (IPOL.EQ.1.OR.IPOL.EQ.3) THEN ! DIFFERENCE BETWEEN TWO HADRON 
-                                            ! POLARIZATION DIRECTIONS 
-         UN = 0.0               ! UN = 0 MEANS F1 = F2 = 0                              
-         PL = 1.0               ! LEPTON POLARIZATION                                   
-         PN = 1.0               ! PN DEFINES HADRON POLARIZATION, G1 AND G2 NON-ZERO    
+      ELSE IF (IPOL.EQ.1.OR.IPOL.EQ.3) THEN ! DIFFERENCE BETWEEN TWO HADRON
+                                            ! POLARIZATION DIRECTIONS
+         UN = 0.0               ! UN = 0 MEANS F1 = F2 = 0
+         PL = 1.0               ! LEPTON POLARIZATION
+         PN = 1.0               ! PN DEFINES HADRON POLARIZATION, G1 AND G2 NON-ZERO
          QN = 0.0
          ISF1 = 3
          ISF2 = 4
       ELSE
          STOP "IPOL Unknown"
       ENDIF
-           
+
       EXTAI2 = 1.0D0
       EXTAI3 = 1.0D0
 
@@ -258,7 +258,7 @@
       !REAL TEMP1,TEMP2,TEMP3,WEIGHT
       DATA      NGAUSSPT/8,16,16,8,16,16,8/
       !---------------------------------------------------------------
-      
+
       TCUT(1) = DLOG(TAU_MIN+XS)
       TCUT(2) = DLOG(XS)
       TCUT(3) = DLOG(TAU_MAX+XS)
@@ -310,10 +310,10 @@
       TPL  = S**2 + X**2
       TMI  = S**2 - X**2
 
-      
+
 !SL   W2   = AMP2 + S - Y - X            ! USE PROTON MASS FOR W2
       W2   = AMT * (AMT + (S-X)/AMH) - Y ! USE HE3 MASS FOR W2
-!SL   Makes no difference.   
+!SL   Makes no difference.
 
 
 
@@ -327,7 +327,7 @@
       SQLY = DSQRT(ALY)                  ! SQRT(LAMBDA_Q)
       SQLM = DSQRT(ALM)
 
-      ALLM  = DLOG( (SQLM+Y)/(SQLM-Y) )/SQLM   
+      ALLM  = DLOG( (SQLM+Y)/(SQLM-Y) )/SQLM
       AXY   = PI*(S-X)
       AN    = 2. * ALFA**2/SQLS * AXY *BARN * AMH/AMP
 
@@ -338,7 +338,7 @@
       BS    = 0.
       CS    = -AML/SQLS
 
-      IF (IPOL/2.EQ.0) THEN ! PARALLEL CONFIGURATION 
+      IF (IPOL/2.EQ.0) THEN ! PARALLEL CONFIGURATION
         AE  = AMP/SQLS
         BE  = 0.
         CE  = -S/AP/SQLS
@@ -361,7 +361,7 @@
       RETURN
       END
 
-!DECK  ID>, BORNIN. 
+!DECK  ID>, BORNIN.
 !***************** BORNIN *************************************
 
       SUBROUTINE BORNIN(SIBOR)
@@ -417,7 +417,7 @@
       RETURN
       END
 
-!DECK  ID>, DELTAS. 
+!DECK  ID>, DELTAS.
 !***************** DELTAS *************************************
 
       SUBROUTINE DELTAS(DELTA,DELINF,TR,FACTOR1,DEL_SUB)
@@ -455,7 +455,7 @@
 
       DLM   = DLOG(Y/AML2)
       SFPR  = DLM**2/2. - DLM * DLOG( SS*XX/(AML2*W2) )
-     &                  - (DLOG( SS/XX ))**2 /2. 
+     &                  - (DLOG( SS/XX ))**2 /2.
      &                  + FSPEN( ( S*X - Y*AMP2) / ( SS*XX )) - PI2/3.
 
 
@@ -469,7 +469,7 @@
 ! JSHERE - 032607 - mod b/c it kept stopping here
 !      IF (TARZ.EQ.1. .AND. TARA.EQ.1. ) THEN  ! CPROT
        IF(TARZ.EQ.1.D0) THEN
-         DELINF  = (DLM-1.) * DLOG( (W2-AMC2   )**2 /(SS*XX) ) ! C$$$      
+         DELINF  = (DLM-1.) * DLOG( (W2-AMC2   )**2 /(SS*XX) ) ! C$$$
          FACTOR1 = ( (W2-W2_ELAS)**2 / (SS*XX) )**( ALFA/PI*0.5*AJ0 )
 !      ELSEIF(TARZ.EQ.2. .AND. TARA.EQ.3.) THEN
        ELSEIF(TARZ.EQ.2.D0) THEN
@@ -479,7 +479,7 @@
          WRITE(*,*) 'JSHERE sub_poltail.f 479'
          WRITE(6,*) TARA,TARZ
          STOP "Problem 3"
-      ENDIF 
+      ENDIF
 
 
 
@@ -527,7 +527,7 @@
 
       END
 
-!DECK  ID>, FSPENS. 
+!DECK  ID>, FSPENS.
 !***************** FSPENS *************************************
 
       REAL*8 FUNCTION FSPENS(X)
@@ -550,7 +550,7 @@
 
       RETURN
       END
-!DECK  ID>, FSPEN.  
+!DECK  ID>, FSPEN.
 !***************** FSPEN **************************************
 
       REAL*8 FUNCTION FSPEN(X)
@@ -585,7 +585,7 @@
       END
 
 
-!DECK  ID>, TAILS.  
+!DECK  ID>, TAILS.
 !***************** TAILS **************************************
 
        SUBROUTINE TAILS(TA,TM)
@@ -640,25 +640,25 @@
       EI12  = (BI12*CCPE + BI1PI2*SPE)/2.                      ! F_D^\ETA
 
       OIS = ((2.*BI1PI2 + BIR*TA)*(CCPE*SPS+CCPS*SPE)+
-     .       (CCPE*CCPS + SPE*SPS*TA**2)*BIS         + 
+     .       (CCPE*CCPS + SPE*SPS*TA**2)*BIS         +
      .    8.*BB*SPE*SPS + 4.*BI12*SPE*SPS*TA**2)/4.            ! F_{2+}^{\KSI\ETA}
 
-      OIR = ( ((2.*BI12 + BIS)*(CCPE*SPS      + CCPS*SPE)*TA + 
-     .      ( CCPE*CCPS + SPE*SPS*TA**2)*BIR  + 
+      OIR = ( ((2.*BI12 + BIS)*(CCPE*SPS      + CCPS*SPE)*TA +
+     .      ( CCPE*CCPS + SPE*SPS*TA**2)*BIR  +
      .     4.*BI1PI2*SPE*SPS*TA))/4.                           ! F_{2-}^{\KSI\ETA}
 
-      OI12= ((CCPE*CCPS + SPE*SPS*TA**2)*BI12 + 
+      OI12= ((CCPE*CCPS + SPE*SPS*TA**2)*BI12 +
      .      (CCPE*SPS   + CCPS*SPE)*BI1PI2 + 4.*BB*SPE*SPS)/4. ! F_D^{\KSI\ETA}
 
-      EEIS = ((CCPE**2  + SPE**2*TA**2)*BIS   + 8.*BB*SPE**2 + 
-     .     4.*BI12*SPE**2*TA**2 + 4.*BI1PI2*CCPE*SPE + 
+      EEIS = ((CCPE**2  + SPE**2*TA**2)*BIS   + 8.*BB*SPE**2 +
+     .     4.*BI12*SPE**2*TA**2 + 4.*BI1PI2*CCPE*SPE +
      .     2.*BIR*CCPE*SPE*TA)/4.                              ! F_{1+}^{\ETA\ETA}
 
-      EEIR  = ( ((CCPE**2   + SPE**2*TA**2)*BIR + 
-     .      4.*BI12*CCPE*SPE*TA + 4.*BI1PI2*SPE**2*TA + 
+      EEIR  = ( ((CCPE**2   + SPE**2*TA**2)*BIR +
+     .      4.*BI12*CCPE*SPE*TA + 4.*BI1PI2*SPE**2*TA +
      .      2.*BIS*CCPE*SPE*TA))/4.
 
-      EEI12 = ((CCPE**2 + SPE**2*TA**2)*BI12 + 4.*BB*SPE**2 
+      EEI12 = ((CCPE**2 + SPE**2*TA**2)*BI12 + 4.*BB*SPE**2
      .    + 2.*BI1PI2*CCPE*SPE)/4.
 
       EI1PI2 = (4.*BB*SPE + BI12*SPE*TA**2       + BI1PI2*CCPE)/2.
@@ -782,7 +782,7 @@
        END
 
 !-----------------------------------------------------------------------------------
-!DECK  ID>, STRF.   
+!DECK  ID>, STRF.
       SUBROUTINE STRF(TA,RR,SFM,SFM0)
 !
 !     THE PROGRAMM CALCULATES DEEP INELASTIC (ITA=1),
@@ -822,7 +822,7 @@
       AMF2= TT - T + AMP2         ! SAME AS W**2 WHEN THERE IS NO REAL PHOTON
       AKS = T / TT                ! SAME AS X_BJORKEN WHEN THERE IS NO REAL PHOTON
       ANU = TT/ AP                ! SAME AS NU WHEN THERE IS NO REAL PHOTON
-      
+
       B1  = 0.D0
       B2  = 0.D0
       B3  = 0.D0
@@ -856,7 +856,7 @@
       ELSE
          SPREAD = 1.0
       ENDIF
-      
+
       F1 =     AMT*TAU *       GM**2            * SPREAD
       F2 = 2.0*AMT*TAU * (GE**2+TAU*GM**2)/TAU1 * SPREAD
       G1 =     AMT*TAU *    GM*(GE+TAU*GM)/TAU1 * SPREAD

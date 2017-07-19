@@ -165,6 +165,8 @@ double CHe3Elas::GetRadXS(double Es, double Ep, double theta,
     }
     rtails_set_radl(radl_in, radl_out, xi_before, xi_after);
 
+    if(polarized) return rtails_rad_cxsn(Es, Ep, theta, false);
+
     switch(approach)
     {
     case Bardin_Shumeiko:

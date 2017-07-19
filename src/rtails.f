@@ -343,7 +343,7 @@
       RCEXT = HCSQ*FSOFT*(XEXTB + XEXTA)*1.0D20
       IF (POLARIZED) THEN
           CALL POLSIG_EL(EINC, EFIN, THETA, IPOL, SIGMA_BORN, SIGMA_RAD)
-          RCINT = SIGMA_RAD
+          RCINT = SIGMA_RAD/1D3
       ELSE
           IF(UNPOL_MT) THEN
               ! internal part
@@ -367,6 +367,7 @@
 
 !      PRINT *, EINC, EFIN, RCINT + RCEXT, UNPOL_MT
       RTAILS_RAD_CXSN = RCEXT + RCINT
+      RETURN
       END FUNCTION RTAILS_RAD_CXSN
 
 

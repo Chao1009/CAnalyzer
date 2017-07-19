@@ -207,8 +207,7 @@ void CElasTails::simElasTails(int flag, double angle, double lc)
     {
         // convert ub/MeV/sr to nb/MeV/sr
         double sigrad = 1000.*he3_model.GetRadXS(in_energy, in_energy - nu_in, theta, radl_in, rloutp);
-        if(sigrad > 0.)
-            fillData(flag, nu_in, sigrad, lc/0.35, angle);
+        fillData(flag, nu_in, sigrad, lc/0.35, angle);
 
         // set nu_in for the next step
         if(nu_in + 0.9*finer_step <= finer_range + nu_elas)

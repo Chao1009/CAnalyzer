@@ -15,7 +15,7 @@ void gen_tail(const string &data_conf = "configs/data_sets_9deg.conf")
     {
         eltail.Initialize(data, i);
         eltail.Generate();
-        string output = "output/tail_" + to_string((int)data.GetSet(i).energy) + ".out";
+        string output = "output/tail_" + to_string((int)data.GetSet(i).energy) + "_perp.out";
         eltail.Output(output);
     }
 }
