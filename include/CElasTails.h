@@ -16,17 +16,13 @@
 class CElasTails : public ConfigObject
 {
 public:
-    struct TailPoint
+    struct NuPoint
     {
-        double phi, tail, weight;
+        double nu, tail, weight;
 
-        TailPoint() {};
-        TailPoint(const double &p) : phi(p) {};
-        TailPoint(const double &p, const double &t, const double &w)
-        : phi(p), tail(t), weight(w)
-        {};
+        NuPoint(double n, double t) : nu(n), tail(t), weight(0.)
+        {}
     };
-    typedef std::map<double, std::vector<TailPoint>> TailSet;
 
     class Acceptance
     {
@@ -34,7 +30,7 @@ public:
         Acceptance();
 
         void Read(const std::string &path, bool verbose = true);
-        double Eval(const double &pt) const;
+        double Eval(double pt) const;
         std::string GetDescription() const;
 
     private:
@@ -54,37 +50,30 @@ public:
 
     void Configure(const std::string &path);
     CHe3Elas &GetModel() {return he3_model;};
-    void Initialize(const CExpData &data, int set_idx);
-    void Generate(double nu_beg = -1, double nu_end = -1);
+    void Initialize(const CExpData::DataSet &dset);
+    void Generate(double nu_beg, double nu_end, double prec = 5e-3);
     void Output(const std::string &path);
 
 private:
+    void initGrids(double nu_beg, double nu_end, double prec);
     void setupColl(const std::string &path);
-    int calcCollLength(const double &z, const double &phi, double &lc);
-    void fillData(const int &flag,
-                  const double &nu,
-                  const double &tail,
-                  const double &rlcoll,
-                  const double &phi);
+    int calcCollLength(double z, double phi, double &lc);
+    void fillData(NuPoint &np, int flag, double xs, double rlcoll, double phi);
     void simElasTails(int flag, double angle, double rloutp);
-    TailPoint punchThrough(const double &nu,
-                           const double &tail,
-                           const double &phi,
-                           const double &rl);
+
 private:
     CHe3Elas he3_model;
     Acceptance acpt;
-    TailSet tset;
+    std::vector<NuPoint> points;
 
-    double in_energy, scat_angle, nu_min, nu_max, nu_elas;
+    double Es, scat_angle;
     double radl_wall, radl_in, radl_out;
     // target collimator geometry
     // Z-position for upstream and downstream target window (cm)
     double alpha_d, alpha_u, ad_x, ad_y, au_x, au_y, ld, lu;
 
     // sampling setup
-    double zt_min, zt_max, zt_step, ang_range, ang_step;
-    double step, fine_step, finer_step, fine_range, finer_range;
+    double zt_min, zt_max, zt_step, ang_range, ang_step, nu_step;
 };
 
 std::ostream &operator <<(std::ostream &os, const CElasTails::Acceptance &acpt);

@@ -35,11 +35,7 @@ void CElasTails::Configure(const std::string &path)
     zt_min = getDefConfig<double>("Target Z Min", -20);
     zt_max = getDefConfig<double>("Target Z Max", 20);
     zt_step = getDefConfig<double>("Target Z Step", 0.2);
-    step = getDefConfig<double>("Step", 10.0);
-    fine_step = getDefConfig<double>("Fine Step", 1.0);
-    finer_step = getDefConfig<double>("Finer Step", 0.1);
-    fine_range = getDefConfig<double>("Fine Range", 50.0);
-    finer_range = getDefConfig<double>("Finer Range", 15.0);
+    nu_step = getDefConfig<double>("Init nu step", 10.0);
 
     // pass this file to the model
     he3_model.Configure(path);
@@ -70,31 +66,24 @@ void CElasTails::setupColl(const std::string &path)
     return;
 }
 
-void CElasTails::Initialize(const CExpData &data, int i)
+void CElasTails::Initialize(const CExpData::DataSet &dset)
 {
     // hard coded value for wall thickness
-    radl_wall = 0.06;
-    scat_angle = data.Angle();
-    in_energy = data.GetSet(i).energy;
+    radl_wall = dset.radl_wall;
+    scat_angle = dset.angle;
+    Es = dset.energy;
 
-    double sin_scat = sin(scat_angle*cana::deg2rad);
-    double sin2 = std::pow(sin(scat_angle*cana::deg2rad/2.), 2);
-    radl_in = data.GetSet(i).radl_before;
-    radl_out = data.GetSet(i).radl_after - radl_wall/10.61/sin_scat;
+    radl_in = dset.radl_before;
+    // remove the contribution from the target cell wall
+    radl_out = dset.radl_after - radl_wall/sin(scat_angle*cana::deg2rad);
 
-    setupColl(data.GetSet(i).coll_file);
-    acpt.Read(data.GetSet(i).accpt_file);
-
-    nu_max = data.GetSet(i).data.back().nu + 5*step;
-    double target_M = data.TargetA()*cana::amu;
-    nu_elas = int(in_energy - in_energy/(1. + 2.*in_energy*sin2/target_M)) + 1.;
-    nu_min = nu_elas;
+    setupColl(dset.coll_file);
+    acpt.Read(dset.accpt_file);
 }
 
-void CElasTails::Generate(double nu_beg, double nu_end)
+void CElasTails::Generate(double nu_beg, double nu_end, double prec)
 {
-    if(nu_beg > 0.) nu_min = nu_beg;
-    if(nu_end > 0.) nu_max = nu_end;
+    initGrids(nu_beg, nu_end, prec);
 
     // angle range
     double ang_min = scat_angle - ang_range/2.0, ang_max = scat_angle + ang_range/2.0;
@@ -129,7 +118,78 @@ void CElasTails::Generate(double nu_beg, double nu_end)
     std::cout << std::endl;
 }
 
-int CElasTails::calcCollLength(const double &z, const double &phi, double &lc)
+// helper function to refine nu grids to the required precision
+void refine_nu_bin(CHe3Elas &model, std::vector<CElasTails::NuPoint> &container, size_t i, size_t f,
+                   double prec, double Es, double theta, double rlin, double rlout)
+{
+    const CElasTails::NuPoint &beg = container.at(i), &end = container.at(f);
+
+    double nu = (beg.nu + end.nu)/2.;
+
+    container.emplace_back(nu, model.GetRadXS(Es, Es - nu, theta, rlin, rlout));
+    const CElasTails::NuPoint &center = container.back();
+
+    if(std::abs(1. - 2.*center.tail/(beg.tail + end.tail)) > prec)
+    {
+        /*
+        std::cout << container.size() << ", "
+                  << center.nu << ", " << beg.nu << ", " << end.nu << ", "
+                  << center.tail << ", " << beg.tail << ", " << end.tail << ", "
+                  << std::abs(1. - 2.*center.tail/(beg.tail + end.tail)) << std::endl;
+        */
+        refine_nu_bin(model, container, i, container.size() - 1, prec, Es, theta, rlin, rlout);
+        refine_nu_bin(model, container, container.size() - 1, f, prec, Es, theta, rlin, rlout);
+    }
+}
+
+// initialize nu grids
+void CElasTails::initGrids(double nu_beg, double nu_end, double prec)
+{
+    std::cout << "Preparing nu grids from " << nu_beg << " to " << nu_end
+              << ", required precision = " << prec << std::endl;
+
+    points.clear();
+    points.reserve(10000);
+
+    double theta = scat_angle*cana::deg2rad;
+    double rlin = radl_in;
+    double rlout = radl_out + radl_wall/sin(theta);
+
+    // initialize grids
+    for(double nu = nu_beg; nu < nu_end; nu += nu_step)
+    {
+        points.emplace_back(nu, he3_model.GetRadXS(Es, Es - nu, theta, rlin, rlout));
+    }
+
+    // make sure the end point is at nu_end
+    if(points.back().nu < nu_end)
+    {
+        points.emplace_back(nu_end, he3_model.GetRadXS(Es, Es - nu_end, theta, rlin, rlout));
+    }
+
+    // refine binning
+    size_t np = points.size();
+    for(size_t i = 1; i < np; ++i)
+    {
+        refine_nu_bin(he3_model, points, i - 1, i, prec, Es, theta, rlin, rlout);
+    }
+
+    // sort in nu transcendant
+    std::sort(points.begin(), points.end(), [] (const NuPoint &p1, const NuPoint &p2)
+                                               {
+                                                   return p1.nu < p2.nu;
+                                               });
+
+    for(auto &p : points)
+    {
+        p.tail = 0.;
+        p.weight = 0.;
+    }
+
+    std::cout << "Nu grids intialized, size is " << points.size() << std::endl;
+}
+
+int CElasTails::calcCollLength(double z, double phi, double &lc)
 {
     double bux, buy, bdx, bdy, cux, cuy, cdx, cdy;
     // where the track intersect the collimator lines
@@ -200,111 +260,52 @@ void CElasTails::simElasTails(int flag, double angle, double lc)
     double theta = angle*cana::deg2rad;
 
     // compute radiation length with collimator
-    double rloutp = radl_out + radl_wall/10.61/sin(theta) + lc/0.35;
+    double rloutp = radl_out + radl_wall/sin(theta) + lc/0.35;
 
-    double nu_in = nu_min;
-    while(nu_in <= nu_max)
+    for(auto &p :  points)
     {
         // convert ub/MeV/sr to nb/MeV/sr
-        double sigrad = 1000.*he3_model.GetRadXS(in_energy, in_energy - nu_in, theta, radl_in, rloutp);
-        fillData(flag, nu_in, sigrad, lc/0.35, angle);
-
-        // set nu_in for the next step
-        if(nu_in + 0.9*finer_step <= finer_range + nu_elas)
-        {
-            nu_in += finer_step;
-        }
-        else if(nu_in + 0.9*fine_step <= fine_range + nu_elas)
-        {
-            nu_in += fine_step;
-        }
-        else
-        {
-            nu_in += step;
-        }
+        double sigrad = 1000.*he3_model.GetRadXS(Es, Es - p.nu, theta, radl_in, rloutp);
+        fillData(p, flag, sigrad, lc/0.35, angle);
     }
 }
 
-// it is a 2d integral int_es(int_ep)
-inline CElasTails::TailPoint CElasTails::punchThrough(const double &nu,
-                                                      const double &tail,
-                                                      const double &phi,
-                                                      const double &rl)
+void CElasTails::fillData(NuPoint &np, int flag, double xs, double rlcoll, double phi)
 {
-    TailPoint point(phi, 0., 0.);
-    double phi2, wgt;
-    double ramoli = 13.6/(in_energy - nu/2.)*74.*sqrt(rl)*(1. + 0.038*log(rl));
-
-    for(int j = 0; j < 12; ++j)
-    {
-        // first half
-        phi2 = phi + ramoli*(j+1)/3.;
-        wgt = acpt.Eval(phi2);
-        point.tail += tail*wgt*__gauss[j];
-        point.weight += wgt;
-
-        // second half
-        phi2 = phi - ramoli*(j+1)/3.;
-        wgt = acpt.Eval(phi2);
-        point.tail += tail*wgt*__gauss[j];
-        point.weight += wgt;
-
-    }
-
-    point.tail /= 24.;
-    point.weight /= 24.;
-
-    return point;
-}
-
-void CElasTails::fillData(const int &flag,
-                          const double &nu,
-                          const double &tail,
-                          const double &rlcoll,
-                          const double &phi)
-{
-    TailPoint point;
-
     // no punch through effect
+    double weight = 0., tail = 0.;
     if(flag == 3)
     {
-        point.phi = phi;
-        point.weight = acpt.Eval(phi);
-        point.tail = point.weight*tail;
-    }
-    else
-    {
-        point = punchThrough(nu, tail, phi, rlcoll);
+        weight = acpt.Eval(phi);
+        tail = weight*xs;
+    // punch through effect
+    } else {
+        double phi2, wgt;
+        double ramoli = 13.6/(Es - np.nu/2.)*74.*sqrt(rlcoll)*(1. + 0.038*log(rlcoll));
+
+        for(int j = 0; j < 12; ++j)
+        {
+            // first half
+            phi2 = phi + ramoli*(j + 1)/3.;
+            wgt = acpt.Eval(phi2);
+            tail += tail*wgt*__gauss[j];
+            weight += wgt;
+
+            // second half
+            phi2 = phi - ramoli*(j + 1)/3.;
+            wgt = acpt.Eval(phi2);
+            tail += tail*wgt*__gauss[j];
+            weight += wgt;
+        }
+        tail /= 24.;
+        weight /= 24.;
     }
 
-    // no need to save this point
-    if(point.weight == 0.)
-        return;
-
-    auto it = tset.find(nu);
-    if(it == tset.end())
-    {
-        std::vector<TailPoint> points;
-        points.reserve(5000);
-        points.push_back(point);
-        tset[nu] = points;
+    // only consider meaningful point
+    if(weight > 0.) {
+        np.tail += tail;
+        np.weight += weight;
     }
-    else
-    {
-        it->second.push_back(point);
-    }
-}
-
-double __average_tail(const std::vector<CElasTails::TailPoint> &data)
-{
-    double total_tail = 0., total_weight = 0.;
-    for(auto &val : data)
-    {
-        total_tail += val.tail;
-        total_weight += val.weight;
-    }
-
-    return total_tail/total_weight;
 }
 
 void CElasTails::Output(const std::string &path)
@@ -312,12 +313,12 @@ void CElasTails::Output(const std::string &path)
     std::cout << "Save result to " << path << std::endl;
     std::ofstream outfile(path);
 
-    for(auto &it : tset)
+    for(auto &np : points)
     {
         outfile << std::setprecision(12);
-        outfile << std::setw(8) << in_energy
-                << std::setw(16) << it.first
-                << std::setw(20) << __average_tail(it.second)
+        outfile << std::setw(8) << Es
+                << std::setw(16) << np.nu
+                << std::setw(20) << np.tail/np.weight
                 << std::endl;
     }
 
@@ -335,7 +336,7 @@ CElasTails::Acceptance::Acceptance()
 };
 
 // get acceptance
-double CElasTails::Acceptance::Eval(const double &pt)
+double CElasTails::Acceptance::Eval(double pt)
 const
 {
     // rising edge

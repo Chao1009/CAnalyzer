@@ -287,6 +287,9 @@ void CExpData::DataSet::ReadConfig(const std::string &config, const CExpData::Se
 
     conf_obj.ReadConfigString(config);
 
+    // by design, the angle should be read from the global setting
+    angle = gset.angle;
+
     // connect data set variables to configurations
     conf::update_config(conf_obj, "Energy", energy);
     conf::update_config(conf_obj, "Radiation Length Before", radl_before);
@@ -300,6 +303,7 @@ void CExpData::DataSet::ReadConfig(const std::string &config, const CExpData::Se
     conf::update_config(conf_obj, "Data Label", data_label);
     conf::update_config(conf_obj, "Acceptance File", accpt_file);
     conf::update_config(conf_obj, "Collimator File", coll_file);
+    conf::update_config(conf_obj, "Radiation Length Wall", radl_wall);
 
     // update radiation length from global factors
     // this is for systematics study

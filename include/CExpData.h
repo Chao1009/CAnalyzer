@@ -46,10 +46,12 @@ public:
     {
         // read from data file
         double energy;        // incident electron energy
+        double angle;         // scattering angle (degree)
         double radl_before;   // radiation length before target
         double radl_after;    // radiation length after target
         double coll_before;   // collision thickness before target
         double coll_after;    // collision thickness after target
+        double radl_wall;     // radiation length of the target cell wall
         double error;         // relative error for RC
         double normalization; // normalization factor
         bool non_rad;         // non radiated means born cross section from file
@@ -60,8 +62,9 @@ public:
 
         // constructors
         DataSet()
-        : energy(0.), radl_before(0.), radl_after(0.), coll_before(0.), coll_after(0.),
-          error(0.), normalization(1.), non_rad(false)
+        : energy(0.), angle(0.),
+          radl_before(0.), radl_after(0.), coll_before(0.), coll_after(0.),
+          radl_wall(0.), error(0.), normalization(1.), non_rad(false)
         {};
 
         void ReadConfig(const std::string &conf_str, const Settings &gset);
