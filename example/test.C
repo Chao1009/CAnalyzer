@@ -170,11 +170,15 @@ void function_test()
              << setw(15) << cana::spence(s) << endl;
 
 
-    cout << cana::simpson(quad, 0, 10, 1000) << endl;
+    cout << cana::simpson(quad, 0., 10, 1000) << endl;
     MyQuad myq(1.0);
     cout << cana::simpson(&MyQuad::eval, &myq, 0, 10, 1000) << endl;
     auto lmd_quad = [](double x) {return x*x;};
     cout << cana::simpson(lmd_quad, 0, 10, 1000) << endl;
+
+    auto nodes = cana::calc_legendre_nodes(96);
+    cout << cana::gauss_quad(nodes, quad, 0., 10) << endl;
+    cout << cana::gauss_quad(nodes, &MyQuad::eval, &myq, 0., 10) << endl;
 }
 
 void model_wrapper_test(double energy, double angle, double nu_min, double nu_max)
@@ -718,3 +722,4 @@ void show_energy_loss()
     gr3b->Draw("P");
     gr2b->GetYaxis()->SetRangeUser(-10, 10);
 }
+

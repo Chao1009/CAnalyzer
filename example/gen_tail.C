@@ -26,7 +26,7 @@ void gen_tail(const string &data_conf = "configs/data_sets_9deg.conf")
 
         eltail.Initialize(dset);
         eltail.Generate(nu_beg, nu_end, 0.005);
-        string output = "output/tails/tail_" + to_string((int)Es) + "_perp.out";
+        string output = "output/tails/tail_" + to_string((int)Es) + "_para.out";
         eltail.Output(output);
     }
 }
