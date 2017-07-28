@@ -50,6 +50,7 @@ CXX_SOURCES   = canalib \
                 ConfigParser \
                 ConfigValue \
                 ConfigObject \
+                ConfigOption \
                 CNeuron \
                 CNeuronLayer \
                 CNeuralNetwork \
@@ -60,7 +61,8 @@ CXX_SOURCES   = canalib \
                 CEstimator \
                 CElasTails \
                 CHe3Elas \
-				CModelWrapper
+				CModelWrapper \
+				CMaidModel
 
 F_SUFFIX      = f
 F_SOURCES     = BostedFit \

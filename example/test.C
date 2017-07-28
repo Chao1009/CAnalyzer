@@ -5,16 +5,49 @@
 #include "CRadCorr.h"
 #include "CElasTails.h"
 #include "CNeuralNetwork.h"
+#include "CMaidModel.h"
+#include "../../sys_study/scripts/utils.C"
 
-void my_test()
+
+// combine polarized properties for helium-3
+double pol_he3(double valp, double valn)
 {
-    cout << cana::linear_interp<double>(1, 1, 2, 2, 0.5) << endl;
-    cout << cana::linear_interp<double>(1, 1, 2, 2, 1.5) << endl;
-    cout << cana::linear_interp<double>(1, 1, 2, 2, 2.5) << endl;
-    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 1.5) << endl;
-    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 2.5) << endl;
-    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 3.5) << endl;
-    cout << cana::parabolic_interp<double>(1, 1, 2, 2, 3, 3, 4.5) << endl;
+    return valp*(2.*-0.027*valp - 0.014) + valn*(1.*0.87 + 0.056);
+}
+
+void mm_test(double energy = 1147, double angle = 9.03)
+{
+    CMaidModel maid("maid_g1g2.dat");
+
+    CMaidModel::MaidValue pro, neu;
+    // convert MeV^3 to nb*MeV
+    double unit = cana::hbarc2*1e7;
+
+    TGraph *gr1 = new TGraph();
+    for(double nu = 100.; nu < energy*0.8; nu += 1.0)
+    {
+        double w = get_W(energy, nu, angle);
+        double q2 = get_Q2(energy, nu, angle);
+        if(w < 1080. || w > 2000.)
+            continue;
+
+        maid.Interp(q2, w, pro, neu);
+
+        double y = nu/energy;
+        double c = (cana::amu*3.01493*q2)/4./cana::alpha/cana::alpha*y/(1 - y)/(2. - y);
+        double coef1 = tan(angle*cana::deg2rad/2.);
+        double coef2 = (1. + (1. - y)*cos(angle*cana::deg2rad))/(1. - y)/sin(angle*cana::deg2rad);
+        double g1 = pol_he3(pro.g1, neu.g1);
+        double g2 = pol_he3(pro.g2, neu.g2);
+
+        double sig_t = (g1 + 2./y*g2)/c/(coef1 + coef2)*unit;
+        gr1->SetPoint(gr1->GetN(), nu, sig_t);
+    }
+
+    TCanvas *c1 = new TCanvas("saGDH fit","fitting band",200,10,700,500);
+    gr1->SetMarkerStyle(21);
+    gr1->SetMarkerSize(0.7);
+    gr1->Draw("AP");
 }
 
 void fit_test()
@@ -230,7 +263,6 @@ void interp_test(double energy = 1000, double nu_beg = 10, double nu_end = 100)
     }
 }
 
-#include "../../sys_study/scripts/utils.C"
 
 void fill_graph_radcor(TGraph *gr,
                        const string &rad_file,
