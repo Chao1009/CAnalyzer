@@ -53,6 +53,7 @@ public:
     void LoadData(const char *path);
 
     bool Interp(double Q2, double W, MaidValue &p, MaidValue &n) const;
+    bool GetHe3gg_EPA(double Q2, double W, double &g1, double &g2) const;
 
 private:
     std::vector<DataSet> data;

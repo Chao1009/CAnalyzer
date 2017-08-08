@@ -384,7 +384,6 @@ const
                     cana::parabolic_interp(data[0].W, data[0].born*data[0].Q2,
                                            data[1].W, data[1].born*data[0].Q2,
                                            data[2].W, data[2].born*data[0].Q2, w);
-        if(xs < 0.) xs = 0.;
         return xs;
     // assuming uniform distribution for high nu region (DIS)
     } else if(w >= data.back().W) {

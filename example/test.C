@@ -9,17 +9,9 @@
 #include "../../sys_study/scripts/utils.C"
 
 
-// combine polarized properties for helium-3
-double pol_he3(double valp, double valn)
-{
-    return valp*(2.*-0.027*valp - 0.014) + valn*(1.*0.87 + 0.056);
-}
-
 void mm_test(double energy = 1147, double angle = 9.03)
 {
     CMaidModel maid("maid_g1g2.dat");
-
-    CMaidModel::MaidValue pro, neu;
     // convert MeV^3 to nb*MeV
     double unit = cana::hbarc2*1e7;
 
@@ -31,14 +23,13 @@ void mm_test(double energy = 1147, double angle = 9.03)
         if(w < 1080. || w > 2000.)
             continue;
 
-        maid.Interp(q2, w, pro, neu);
+        double g1, g2;
+        if(!maid.GetHe3gg_EPA(q2, w, g1, g2)) continue;
 
         double y = nu/energy;
         double c = (cana::amu*3.01493*q2)/4./cana::alpha/cana::alpha*y/(1 - y)/(2. - y);
         double coef1 = tan(angle*cana::deg2rad/2.);
         double coef2 = (1. + (1. - y)*cos(angle*cana::deg2rad))/(1. - y)/sin(angle*cana::deg2rad);
-        double g1 = pol_he3(pro.g1, neu.g1);
-        double g2 = pol_he3(pro.g2, neu.g2);
 
         double sig_t = (g1 + 2./y*g2)/c/(coef1 + coef2)*unit;
         gr1->SetPoint(gr1->GetN(), nu, sig_t);

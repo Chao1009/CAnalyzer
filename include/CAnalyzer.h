@@ -12,11 +12,11 @@ public:
     CAnalyzer();
     virtual ~CAnalyzer();
 
-    void ReadData(const std::string &path,
+    bool ReadData(const std::string &path,
                   const int &cri_col = -1,
                   const double &cri_val = 0,
                   const double &diff = 0.5);
-    void ReadData(const std::string &path,
+    bool ReadData(const std::string &path,
                   std::vector< std::vector<double> > &cols,
                   const int &cri_col = -1,
                   const double &cri_val = 0,

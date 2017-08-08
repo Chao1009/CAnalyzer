@@ -308,7 +308,7 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
             point.last = point.born;
             // radiative correction, update the born cross section
             point.born = (point.rad - (SIGBEF+SIGAFT))/SIGLOW;
-            if(point.born < 0.) point.born = 0.;
+//            if(point.born < 0.) point.born = 0.;
         }
     }
 
@@ -435,7 +435,7 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
             point.last = point.born;
             // radiative correction, update the born cross section
             point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d))/sgl_both;
-            if(point.born < 0.) point.born = 0.;
+//            if(point.born < 0.) point.born = 0.;
         }
     }
 

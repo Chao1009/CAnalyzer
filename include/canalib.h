@@ -28,8 +28,8 @@ namespace cana
     const static double tau_mass = 1776.82;         // MeV
     const static double proton_mass = 938.272046;   // MeV
     const static double neutron_mass = 939.5654133; // MeV
-    const static double hbarc = 197.326979;         // hbar*c (MeV*fm)
-    const static double hbarc2 = 38937.93664;       // (hbar*c)^2 (MeV*fm)^2
+    const static double hbarc = 197.326968;         // hbar*c (MeV*fm)
+    const static double hbarc2 = 38937.9323;        // (hbar*c)^2 (MeV*fm)^2
     const static double amu = 931.494043;           // MeV per amu
 
     inline double sigmoid(double a, double p);
@@ -85,7 +85,7 @@ namespace cana
     struct legendre_nodes { int order; std::vector<weight_point> weights; };
 
     // legendre polynomial calculation to get the weight table
-    legendre_nodes calc_legendre_nodes(int n, double prec = 1e-16);
+    legendre_nodes calc_legendre_nodes(int n, double prec = 1e-10);
     // gauss-legendre quadrature
     template<typename F, typename... Args>
     double gauss_quad(const legendre_nodes &ln, F &&f, double a, double b, Args&&... args)

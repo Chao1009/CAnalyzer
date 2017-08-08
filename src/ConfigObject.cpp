@@ -5,6 +5,7 @@
 // The Configure() function should be overloaded according to specialized     //
 // requirements, and be called after the parameters being configured          //
 //                                                                            //
+// Chao Peng                                                                  //
 // 10/31/2016                                                                 //
 //============================================================================//
 
@@ -77,13 +78,13 @@ bool ConfigObject::ReadConfigFile(const std::string &path)
 }
 
 // read the configuration string directly
-void ConfigObject::ReadConfigString(const std::string &content, const std::string &source)
+void ConfigObject::ReadConfigString(const std::string &content)
 {
     ConfigParser c_parser(split_chars);
 
     c_parser.ReadBuffer(content.c_str());
 
-    parserProcess(c_parser, source);
+    parserProcess(c_parser, "buffer_string");
 }
 
 // continue parse the terms

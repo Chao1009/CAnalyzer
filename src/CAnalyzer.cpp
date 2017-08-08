@@ -8,16 +8,16 @@ CAnalyzer::~CAnalyzer()
 {
 }
 
-void CAnalyzer::ReadData(const std::string &path,
+bool CAnalyzer::ReadData(const std::string &path,
                          const int &cri_col,
                          const double &cri_val,
                          const double &diff)
 {
     Erase();
-    ReadData(path, columns, cri_col, cri_val, diff);
+    return ReadData(path, columns, cri_col, cri_val, diff);
 }
 
-void CAnalyzer::ReadData(const std::string &path,
+bool CAnalyzer::ReadData(const std::string &path,
                          std::vector< std::vector<double> > &cols,
                          const int &cri_col,
                          const double &cri_val,
@@ -26,9 +26,7 @@ void CAnalyzer::ReadData(const std::string &path,
     ConfigParser c_parser;
 
     if(!c_parser.OpenFile(path))
-    {
-        std::cout << "Cannot open file " << path << std::endl;
-    }
+        return false;
 
     while(c_parser.ParseLine())
     {
@@ -67,4 +65,5 @@ void CAnalyzer::ReadData(const std::string &path,
     }
 
     c_parser.CloseFile();
+    return true;
 }
