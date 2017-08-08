@@ -23,8 +23,8 @@ public:
     const CModelWrapper &GetModel() {return model;}
 
 private:
-    void radcor(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
-    void xyrad2d(CExpData::DataSet &dset, bool radiate = false, bool verbose = true);
+    void radcor(CExpData::DataSet &dset, bool verbose = true);
+    void xyrad2d(CExpData::DataSet &dset, bool verbose = true);
     double fes(double Es);
     double fep(double Ep);
     double int_es(double Es);

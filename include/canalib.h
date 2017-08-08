@@ -49,6 +49,20 @@ namespace cana
         return val;
     }
 
+    // update max value
+    template<typename T>
+    inline void update_max(T &val, const T &new_val)
+    {
+        if(new_val > val) val = new_val;
+    }
+
+    // update min value
+    template<typename T>
+    inline void update_min(T &val, const T &new_val)
+    {
+        if(new_val < val) val = new_val;
+    }
+
     // linear interpolation of two points (x1, y1), (x2, y2)
     template<typename T>
     inline T linear_interp(T x1, T y1, T x2, T y2, T val)

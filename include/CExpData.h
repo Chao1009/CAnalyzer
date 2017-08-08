@@ -25,14 +25,14 @@ public:
         double Ep;       // final energy (MeV)
         double W;        // invariant mass (MeV)
         double Q2;       // four momentum transfer square (MeV^2)
-        double rad;      // Radiated cross section (nb/MeV/sr)
-        double born;     // Born cross section (nb/MeV/sr)
-        double last;     // Save info from last iteration
+        double xs;       // measured cross section (nb/MeV/sr)
+        double rad;      // radiated cross section (nb/MeV/sr)
+        double born;     // Born level cross section (nb/MeV/sr)
 
         // constructors
         DataPoint() {};
         DataPoint(double n, double c, double st, double sy)
-        : nu(n), stat(st), syst(sy), rad(c), born(c), last(c)
+        : nu(n), stat(st), syst(sy), xs(c), rad(c), born(c)
         {};
 
         // for binary search

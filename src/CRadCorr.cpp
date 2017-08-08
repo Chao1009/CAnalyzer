@@ -135,47 +135,47 @@ void CRadCorr::RadiativeCorrection(CExpData &exp_data, int iters)
         for(auto &dset : exp_data.GetSets())
         {
             // skip Born Level data/model
-            if(dset.non_rad)
-                continue;
+            if(dset.non_rad) continue;
 
             std::cout << "Iteration " << iter << ", spectrum E = " << dset.energy
                       << std::endl;
 
             // energy peaking or not
             if(peak_approx)
-                radcor(dset, radiate);
+                radcor(dset);
             else
-                xyrad2d(dset, radiate);
+                xyrad2d(dset);
         }
+
+        // update Born level cross section
+        double max_rel_diff = 0.;
+        for(auto &dset : exp_data.GetSets())
+        {
+            if(dset.non_rad) continue;
+            for(auto &point : dset.data)
+            {
+                double diff = point.xs - point.rad;
+                cana::update_max(max_rel_diff, fabs(diff/point.xs));
+                point.born += diff;
+            }
+        }
+
+        std::cout << "Iteration " << iter << " done.\n"
+                  << "Maximum diff. = " << max_rel_diff*100. << "%, "
+                  << std::endl;
 
         // after correction, check if this iteration reaches the precision
         if(end_by_prec) {
-            // get maximum difference between current value and last iteration value
-            double max_rel_diff = 0.;
-            for(auto &dset : exp_data.GetSets())
-            {
-                for(auto &point : dset.data)
-                {
-                    double rel_diff = fabs(1. - point.last/point.born);
-                    if(rel_diff > max_rel_diff)
-                        max_rel_diff = rel_diff;
-                }
-            }
-
-            // end iteration message
-            std::cout << "Iteration " << iter << " done."
-                      << "Maximum change = " << max_rel_diff*100. << "%, "
-                      << "required precision = " << iter_prec*100. << "%. "
-                      << std::endl;
-
             // need continue
             if(max_rel_diff > iter_prec) {
-                std::cout << "Not converging within the required precision, "
+                std::cout << "Not converging within the "
+                          << "required precision = " << iter_prec*100. << "%, "
                           << "continue iterations..."
                           << std::endl;
             // Done the radiative correction
             } else {
-                std::cout << "Converged within the required precision, done!"
+                std::cout << "Converged within the "
+                          << "required precision = " << iter_prec*100. << "%, done!"
                           << std::endl;
                 return;
             }
@@ -203,9 +203,9 @@ void CRadCorr::Radiate(CExpData &exp_data)
         std::cout << "Radiate, spectrum energy: " << s.energy << std::endl;
 
         if(peak_approx)
-            radcor(s, radiate);
+            radcor(s);
         else
-            xyrad2d(s, radiate);
+            xyrad2d(s);
     }
 }
 
@@ -251,7 +251,7 @@ void CRadCorr::Radiate(CExpData &exp_data)
 //           Phys. Rev. D 5, 528 - 544 (Feb. 1972)                              
 //           http://link.aps.org/abstract/PRD/v5/p528                           
 //==============================================================================
-void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
+void CRadCorr::radcor(CExpData::DataSet &s, bool verbose)
 {
     spectrum_init(s);
 
@@ -300,16 +300,8 @@ void CRadCorr::radcor(CExpData::DataSet &s, bool radiate, bool verbose)
             SIGAFT = cana::simpson(&CRadCorr::fep, this, Epmin, Epmax, n_sim);
         }
 
-        if(radiate) {
-            // radiate, update radiated cross section
-            point.rad = SIGLOW*point.born + (SIGBEF + SIGAFT);
-        } else {
-            // save last iteration
-            point.last = point.born;
-            // radiative correction, update the born cross section
-            point.born = (point.rad - (SIGBEF+SIGAFT))/SIGLOW;
-//            if(point.born < 0.) point.born = 0.;
-        }
+        // radiate, update radiated cross section
+        point.rad = SIGLOW*point.born + (SIGBEF + SIGAFT);
     }
 
     if(verbose) {
@@ -370,7 +362,7 @@ double CRadCorr::fep(double Epx)
 //           by: Yung-Su Tsai, SLAC PUB 848, Jan 1971                           
 //           http://www.slac.stanford.edu/pubs/slacpubs/0750/slac-pub-0848.pdf  
 //==============================================================================
-void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
+void CRadCorr::xyrad2d(CExpData::DataSet &s, bool verbose)
 {
     spectrum_init(s);
 
@@ -427,16 +419,8 @@ void CRadCorr::xyrad2d(CExpData::DataSet &s, bool radiate, bool verbose)
             sgl_Es *= 1. - XIB/(1 - BTB - BTR)/delta1;
         }
 
-        if(radiate) {
-            // radiate, update radiated cross section
-            point.rad = sgl_both*point.born + (sgl_Es + sgl_Ep + int_2d);
-        } else {
-            // save last iteration
-            point.last = point.born;
-            // radiative correction, update the born cross section
-            point.born = (point.rad - (sgl_Es + sgl_Ep + int_2d))/sgl_both;
-//            if(point.born < 0.) point.born = 0.;
-        }
+        // radiate, update radiated cross section
+        point.rad = sgl_both*point.born + (sgl_Es + sgl_Ep + int_2d);
     }
 
     if(verbose) {
@@ -608,9 +592,9 @@ void CRadCorr::scale_model(const CExpData &exp_data, bool born)
         while(model_iter++ < 20)
         {
             if(peak_approx)
-                radcor(model_set, true, false);
+                radcor(model_set, false);
             else
-                xyrad2d(model_set, true, false);
+                xyrad2d(model_set, false);
 
             CExpData::DataPoint max_model(*find_peak(model_set.data, born));
 
