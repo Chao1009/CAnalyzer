@@ -14,7 +14,9 @@
 
 
 // limit of bins for simpson integration by precision
-#define MAX_SIMPSON_BINS 60000
+#define MAX_SIMPSON_BINS 50000
+// limit of bin size for simpson method (relative diff. b/a - 1.)
+#define MIN_SIMPSON_SIZE 1e-15
 
 namespace cana
 {
@@ -28,8 +30,8 @@ namespace cana
     const static double tau_mass = 1776.82;         // MeV
     const static double proton_mass = 938.272046;   // MeV
     const static double neutron_mass = 939.5654133; // MeV
-    const static double hbarc = 197.326968;         // hbar*c (MeV*fm)
-    const static double hbarc2 = 38937.9323;        // (hbar*c)^2 (MeV*fm)^2
+    const static double hbarc = 197.32696979;       // hbar*c (MeV*fm)
+    const static double hbarc2 = 38937.93664;       // (hbar*c)^2 (MeV*fm)^2
     const static double amu = 931.494043;           // MeV per amu
 
     inline double sigmoid(double a, double p);
@@ -40,6 +42,13 @@ namespace cana
     double spence(double z, double res = 1e-15);
     inline double spence_tr(double z, double res, int nmax);
 
+    inline bool is_odd(int i) {return i&1;}
+    template<typename T>
+    inline void update_max(T &max, T val)
+    {
+        if(val > max) max = val;
+    }
+
     // clamp values to be restricted inside [min, max]
     template<typename T>
     inline T clamp(T val, T min, T max)
@@ -49,18 +58,35 @@ namespace cana
         return val;
     }
 
-    // update max value
+    // get the intersection
+    // of line (x1, y1) (x2, y2) and line (x3, y3) (x4, y4)
+    // return status
+    // -1 two lines are parallel, no intersection point found
+    // 0 intersection point found, within both line segments
+    // 1 intersection point found, out of the former line segment (x1, y1)&(x2, y2)
+    // 2 intersection point found, out of the latter line segment (x3, y3)&(x4, y4)
+    // 3 intersection point found, out of both line segments
     template<typename T>
-    inline void update_max(T &val, const T &new_val)
+    inline int intersection(T x1, T y1, T x2, T y2, T x3, T y3, T x4, T y4,
+                            T &xc, T &yc, T inf = 0.001)
     {
-        if(new_val > val) val = new_val;
-    }
+        // denominator
+        double denom = (x1 - x2)*(y3 - y4) - (y1 - y2)*(x3 - x4);
 
-    // update min value
-    template<typename T>
-    inline void update_min(T &val, const T &new_val)
-    {
-        if(new_val < val) val = new_val;
+        // parallel
+        if(std::abs(denom) < inf) return -1;
+
+        // find the cross point
+        xc = ((x1*y2 - y1*x2)*(x3 - x4) - (x3*y4 - y3*x4)*(x1 - x2))/denom;
+        yc = ((x1*y2 - y1*x2)*(y3 - y4) - (x3*y4 - y3*x4)*(y1 - y2))/denom;
+
+        // check if the cross point is on the boundary line
+        bool out_of_line1 = ((x1 - xc)*(xc - x2) < -inf) || ((y1 - yc)*(yc - y2) < -inf);
+        bool out_of_line2 = ((x3 - xc)*(xc - x4) < -inf) || ((y3 - yc)*(yc - y4) < -inf);
+
+        int status = (out_of_line1) ? 1 : 0;
+        status += (out_of_line2) ? 2 : 0;
+        return status;
     }
 
     // linear interpolation of two points (x1, y1), (x2, y2)
@@ -128,7 +154,7 @@ namespace cana
     template<class T, typename F, typename... Args>
     double gauss_quad(const legendre_nodes &ln, F (T::*f), T *t, double a, double b, Args&&... args)
     {
-        // wrapper member function
+        // wrapper of a member function
         auto fn = [t, f] (double val, Args&&... args2)
                   {
                       return (t->*f)(val, args2...);
@@ -176,7 +202,11 @@ namespace cana
     {
         double c = (a + b)/2.;
         double f_c = f(c, args...);
-        if(++count < MAX_SIMPSON_BINS && std::abs(1. - (f_a + f_b)/2./f_c) > prec) {
+        if((++count < MAX_SIMPSON_BINS) &&
+           (f_c != 0.) &&
+           (std::abs(a/c - 1.) > MIN_SIMPSON_SIZE) &&
+           (std::abs(1. - (f_a + f_b)/2./f_c) > prec)) {
+
             return simpson_prec_helper(f, a, f_a, c, f_c, prec, count, args...)
                    + simpson_prec_helper(f, c, f_c, b, f_b, prec, count, args...);
         } else {
@@ -436,7 +466,7 @@ namespace cana
     //        its first and last vertices
     // output: winding number, 0 means outside
     template<class Iter, typename T>
-    int inside_polygon_2d(const T& point, Iter pv_beg, Iter pv_end)
+    int inside_polygon_2d(T x, T y, Iter pv_beg, Iter pv_end)
     {
         int wn = 0;    // the  winding number counter
 
@@ -450,20 +480,20 @@ namespace cana
                 it_next = pv_beg;
 
             // start y <= point.y
-            if(it->y <= point.y)
+            if(it->y <= y)
             {
                 // upward crossing
-                if(it_next->y > point.y)
+                if(it_next->y > y)
                     // left of this boundary
-                    if(is_left(point.x, point.y, it->x, it->y, it_next->x, it_next->y) > 0)
+                    if(is_left(x, y, it->x, it->y, it_next->x, it_next->y) > 0)
                         ++wn;
             }
             else
             {
                 // downward crossing
-                if(it_next->y <= point.y)
+                if(it_next->y <= y)
                     // right of this boundary
-                    if(is_left(point.x, point.y, it->x, it->y, it_next->x, it_next->y) < 0)
+                    if(is_left(x, y, it->x, it->y, it_next->x, it_next->y) < 0)
                         --wn;
             }
         }
