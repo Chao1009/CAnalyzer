@@ -12,9 +12,10 @@ MAKEFILE      = Makefile
 CC            = gcc
 CXX           = g++
 FORTRAN       = gfortran
-CXXFLAGS      = -shared -pipe -std=c++11 -O2 -g -Wall -m64 -mtune=generic -fPIC
+CXXFLAGS      = -shared -pipe -O2 -g -Wall -m64 -mtune=generic -fPIC
+CXXFLAGS     += $(shell root-config --cflags)
 FFLAGS        = -fPIC -ffixed-line-length-none
-INCPATH       = -Iinclude -I$(ROOTSYS)/include
+INCPATH       = -Iinclude
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
 MKDIR         = mkdir -p
@@ -50,7 +51,6 @@ CXX_SOURCES   = canalib \
                 ConfigParser \
                 ConfigValue \
                 ConfigObject \
-                ConfigOption \
                 CNeuron \
                 CNeuronLayer \
                 CNeuralNetwork \
@@ -93,10 +93,10 @@ cleantgt:
 	-$(DEL_FILE) $(TARGET)
 
 $(OBJECTS_DIR)/%.cpp.o: $(SOURCES_DIR)/%.$(CXX_SUFFIX)
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o $@ $<
+	$(CXX) -c $(CXXFLAGS) ${INCPATH} -o $@ $<
 
 $(OBJECTS_DIR)/%.f.o: $(SOURCES_DIR)/%.$(F_SUFFIX)
-	$(FORTRAN) -c $(FFLAGS) $(INCPATH) -o $@ $<
+	$(FORTRAN) -c $(FFLAGS) ${INCPATH} -o $@ $<
 
 ####### Install
 
