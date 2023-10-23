@@ -21,8 +21,8 @@ void gen_tail(const string &data_conf = "configs/data_sets_9deg.conf")
         double nu_min = int(Es - Es/(1. + 2.*Es*sin2/target_M)) + 1.;
         double nu_max = int(Es) - 1.;
 
-        double nu_beg = cana::clamp(dset.data.front().nu - 10., nu_min, nu_max);
-        double nu_end = cana::clamp(dset.data.back().nu + 10., nu_min, nu_max);
+        double nu_beg = nu_min;
+        double nu_end = nu_max - 50.;
 
         eltail.Initialize(dset);
         eltail.Generate(nu_beg, nu_end, 0.005);
